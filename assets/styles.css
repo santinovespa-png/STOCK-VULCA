@@ -144,11 +144,21 @@ body{
 }
 
 .precios{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--linea)}
-.precio{padding:10px 13px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.precio{
+  padding:10px 13px 12px;display:flex;flex-direction:column;gap:3px;min-width:0;
+  font:inherit;text-align:left;border:0;margin:0;width:100%;
+  -webkit-appearance:none;appearance:none;
+}
+button.precio{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.precio:active{filter:brightness(1.25)}
+button.precio:focus-visible{outline:3px solid var(--azul);outline-offset:-3px}
+.precio--sin{cursor:default}
 .precio__tag{
   font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;
-  display:flex;align-items:center;gap:5px;
+  display:flex;align-items:center;gap:5px;min-height:16px;
 }
+.precio__icono{width:13px;height:13px;margin-left:auto;fill:currentColor;opacity:.75;flex:0 0 auto}
+.precio--ok .precio__valor{opacity:.65}
 .precio__valor{font-size:21px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
 .precio__valor--vacio{font-size:13px;font-weight:700;opacity:.75;letter-spacing:0}
 .precio--ruta{background:var(--negro);color:#fff}
@@ -160,14 +170,6 @@ body{
   display:block;padding:11px 13px;background:#f6f7f9;color:var(--texto-2);
   font-size:12.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
 }
-.card__foot{border-top:1px solid var(--linea);padding:7px 10px;display:flex;justify-content:flex-end}
-.copy{
-  font:inherit;font-size:12px;font-weight:700;color:var(--texto-2);background:none;
-  border:0;padding:4px 6px;border-radius:6px;cursor:pointer;
-}
-.copy:hover{background:#f1f2f5;color:var(--texto)}
-.copy.ok{color:var(--verde)}
-
 /* ===== Estados ===== */
 .empty{
   text-align:center;padding:42px 18px;color:var(--texto-2);
@@ -187,6 +189,7 @@ body{
 .legend-dot{width:13px;height:13px;border-radius:4px;display:inline-block}
 .legend-dot--ruta{background:var(--negro)}
 .legend-dot--mdp{background:var(--amarillo);border:1px solid var(--amarillo-osc)}
+.foot__tip{margin:0 0 14px;font-size:12.5px}
 .loader{border-top:1px solid var(--linea);padding-top:12px}
 .loader summary{cursor:pointer;font-weight:700;color:var(--texto)}
 .loader p{font-size:12.5px;margin:7px 0}

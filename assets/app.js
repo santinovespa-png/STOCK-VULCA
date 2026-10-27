@@ -9,6 +9,14 @@
     xlsx: 'data/stock.xlsx',
     csv: 'data/stock.csv',
     precios: { ruta: 'data/precios_ruta.xlsx', mdp: 'data/precios_mdp.xlsx' },
+    // Misma cubierta con codigo distinto en el stock y en la lista de precios.
+    // Izquierda: codigo del stock. Derecha: codigo de la lista. Confirmadas una por una.
+    equivalencias: {
+      '110740': '117315',   // 215/65R16 WRANGLER FORTITUDE HT
+      '118403': '141066',   // 205/45R17 EAGLE TOURING
+      '110842': '108303',   // 215/45R16 EFFICIENTGRIP PERFORMANCE
+      '117861': '142517'    // 225/45R17 EAGLE SPORT 2
+    },
     ordenMarcas: ['GOODYEAR', 'SPORTRAK', 'SPORTRACK', 'ROADKING'],
     topeStock: 20,            // si hay mas de 20 unidades, se muestra 20
     maxRender: 400,
@@ -350,7 +358,7 @@
 
     function buscar(lista, it) {
       if (!lista || !it.codigo) return null;
-      var p = lista[it.codigo];
+      var p = lista[it.codigo] || lista[CONFIG.equivalencias[it.codigo]];
       if (!p) return null;
       if (p.medida && p.medida !== it.medidaBase) return null;
       return p.valor;
@@ -466,14 +474,29 @@
     return '<span class="stock stock--' + cls + '">' + esc(texto) + '</span>';
   }
 
-  function bloquePrecio(tipo, valor) {
+  var ICONO_COPIAR = '<svg class="precio__icono" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>';
+
+  // Cada precio es un boton: al tocarlo copia "MARCA DISEÑO MEDIDA $ PRECIO",
+  // solo con ese precio, para mandarlo al cliente sin que vea el otro.
+  function bloquePrecio(tipo, valor, it, i) {
     var etiqueta = tipo === 'ruta' ? 'RUTA' : 'MDP';
-    var cuerpo = valor === null
-      ? '<span class="precio__valor precio__valor--vacio">A confirmar</span>'
-      : '<span class="precio__valor">' + fmtPesos(valor) + '</span>';
-    return '<div class="precio precio--' + tipo + '">' +
-             '<span class="precio__tag">' + etiqueta + '</span>' + cuerpo +
-           '</div>';
+    if (valor === null) {
+      return '<div class="precio precio--' + tipo + ' precio--sin">' +
+               '<span class="precio__tag">' + etiqueta + '</span>' +
+               '<span class="precio__valor precio__valor--vacio">A confirmar</span>' +
+             '</div>';
+    }
+    return '<button type="button" class="precio precio--' + tipo + '" data-i="' + i + '" data-precio="' + tipo + '"' +
+             ' aria-label="Copiar precio ' + etiqueta + ' de ' + esc(it.medida) + '">' +
+             '<span class="precio__tag">' + etiqueta + ICONO_COPIAR + '</span>' +
+             '<span class="precio__valor">' + fmtPesos(valor) + '</span>' +
+           '</button>';
+  }
+
+  function textoParaCopiar(it, tipo) {
+    var valor = tipo === 'ruta' ? it.ruta : it.mdp;
+    return [it.marca, it.diseno, it.medida].filter(Boolean).join(' ') + ' ' + fmtPesos(valor);
   }
 
   function tarjeta(it, i) {
@@ -491,14 +514,10 @@
     // sin ningun precio cargado se muestra una sola franja, para no repetir dos "A confirmar"
     var precios = (it.ruta === null && it.mdp === null)
       ? '<div class="precios precios--vacio">Precio a confirmar</div>'
-      : '<div class="precios">' + bloquePrecio('ruta', it.ruta) + bloquePrecio('mdp', it.mdp) + '</div>';
-
-    var pie = '<div class="card__foot">' +
-                '<button type="button" class="copy" data-i="' + i + '">Copiar</button>' +
-              '</div>';
+      : '<div class="precios">' + bloquePrecio('ruta', it.ruta, it, i) + bloquePrecio('mdp', it.mdp, it, i) + '</div>';
 
     return '<article class="card' + (hayStock(it) ? '' : ' card--sin') + '">' +
-             cab + precios + pie +
+             cab + precios +
            '</article>';
   }
 
@@ -687,22 +706,24 @@
   });
 
   elRes.addEventListener('click', function (ev) {
-    var b = ev.target.closest('.copy');
+    var b = ev.target.closest('.precio[data-precio]');
     if (!b) return;
     var it = ULTIMO_RENDER[parseInt(b.getAttribute('data-i'), 10)];
     if (!it) return;
-    var partes = [it.marca, it.diseno, it.medida].filter(Boolean).join(' ');
-    var texto = partes +
-      '\nRUTA: ' + (it.ruta === null ? 'a confirmar' : fmtPesos(it.ruta)) +
-      '\nMDP: ' + (it.mdp === null ? 'a confirmar' : fmtPesos(it.mdp)) +
-      '\nStock: ' + (it.stockNum !== null ? it.stockNum : (it.stockTexto || 'consultar'));
-    var ok = function () {
-      b.classList.add('ok'); b.textContent = '✓ Copiado';
-      setTimeout(function () { b.classList.remove('ok'); b.textContent = 'Copiar'; }, 1500);
+    var tipo = b.getAttribute('data-precio');
+    if ((tipo === 'ruta' ? it.ruta : it.mdp) === null) return;
+    var texto = textoParaCopiar(it, tipo);
+    var avisar = function () {
+      var tag = b.querySelector('.precio__tag');
+      if (!tag || b.classList.contains('precio--ok')) return;
+      var antes = tag.innerHTML;
+      b.classList.add('precio--ok');
+      tag.innerHTML = '\u2713 COPIADO';
+      setTimeout(function () { tag.innerHTML = antes; b.classList.remove('precio--ok'); }, 1500);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(texto).then(ok, function () { copiarViejo(texto, ok); });
-    } else copiarViejo(texto, ok);
+      navigator.clipboard.writeText(texto).then(avisar, function () { copiarViejo(texto, avisar); });
+    } else copiarViejo(texto, avisar);
   });
 
   function copiarViejo(texto, ok) {

@@ -75,6 +75,21 @@ ficha queda sin precio en vez de mostrar uno dudoso.
 La fecha de vigencia de la lista (`VIGENCIA 13/10/26`) sale sola y se muestra arriba,
 al lado de la fecha del stock.
 
+**Cuando el código no coincide:** a veces la misma cubierta tiene un código en el stock
+y otro en la lista (código viejo y nuevo). Esos casos se conectan a mano en
+`assets/app.js`, en la lista `equivalencias`, que hoy tiene cuatro:
+
+```
+'110740': '117315',   // 215/65R16 WRANGLER FORTITUDE HT
+'118403': '141066',   // 205/45R17 EAGLE TOURING
+'110842': '108303',   // 215/45R16 EFFICIENTGRIP PERFORMANCE
+'117861': '142517'    // 225/45R17 EAGLE SPORT 2
+```
+
+A la izquierda el código del stock, a la derecha el de la lista. Si aparece otro caso,
+pasámelo y lo agrego (también ahí se controla que la medida coincida, así que no se puede
+conectar mal dos cubiertas distintas).
+
 **Por qué algunas medidas dicen "Precio a confirmar":**
 
 - No están en la lista Consumer: camión y ómnibus (22.5", 17.5"), agrícolas y cámaras.
@@ -97,11 +112,22 @@ escriba la medida:
 - También busca por diseño (`maxlife`, `wrangler`, `kelly`) o por marca (`roadking`)
 - Se pueden combinar: `17565 goodyear`
 
-Además tiene filtro por marca, botón **"Solo con stock"**, orden (medida, marca,
-stock o precio) y un botón **"Copiar"** en cada ficha para pegar la info en WhatsApp.
+Además tiene filtro por marca, botón **"Solo con stock"** y orden (medida, marca,
+stock o precio).
 
-**Cuando haya precios, los dos se distinguen por color:**
+**Los dos precios se distinguen por color:**
 **RUTA = bloque negro** · **MDP = bloque amarillo**, cada uno con su etiqueta.
+
+### Copiar un precio para mandarlo
+
+Cada precio es un botón. Tocando el bloque se copia **solo ese precio**, listo para pegar
+en WhatsApp:
+
+- Tocás el bloque negro → `GOODYEAR ASSURANCE MAXLIFE 86H XL 175/65 R14 $ 91.231`
+- Tocás el amarillo → lo mismo pero con el precio MDP
+
+De esta manera el cliente nunca recibe los dos precios juntos. El bloque avisa
+**✓ COPIADO** por un segundo para confirmar.
 
 ---
 
