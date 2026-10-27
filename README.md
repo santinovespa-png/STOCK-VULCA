@@ -1,74 +1,83 @@
 # STOCK VULCA — Consulta de cubiertas
 
 Página web para que los vendedores consulten **stock y precios** de cubiertas
-(GOODYEAR, SPORTRACK y ROADKING) desde la computadora o el celular.
+(GOODYEAR, SPORTRAK y ROADKING) desde la computadora o el celular.
 
-El stock sale directamente de un archivo Excel que vos actualizás: **cambiás el Excel y la página
+El stock sale directamente del Excel que vos subís: **cambiás el Excel y la página
 se actualiza sola**, sin tocar nada de código.
 
 ---
 
 ## 1. Actualizar el stock del día
 
-1. Abrí tu Excel en la compu, cargá el stock y los precios, y guardalo con el nombre **`stock.xlsx`**.
+1. Sacá el reporte de stock como siempre y guardalo con el nombre **`stock.xlsx`**.
 2. Entrá al repositorio en GitHub → carpeta **`data`**.
 3. Botón **`Add file` → `Upload files`** y arrastrá tu `stock.xlsx`.
    (Al tener el mismo nombre, reemplaza el anterior.)
 4. Abajo, **`Commit changes`**.
-5. Esperá ~1 minuto y recargá la página. Arriba a la derecha vas a ver la fecha y hora
-   de la última actualización.
+5. Esperá ~1 minuto y recargá la página. Arriba a la izquierda vas a ver la fecha
+   y hora de la última actualización.
 
-> La página siempre pide la versión más nueva del archivo, así que el vendedor no necesita
-> borrar caché ni nada por el estilo.
+> La página siempre pide la versión más nueva del archivo, así que el vendedor no
+> necesita borrar caché ni nada por el estilo.
 
 ---
 
 ## 2. Cómo tiene que estar armado el Excel
 
-Podés usar **una hoja por marca** (recomendado) o una sola hoja con la columna `MARCA`.
-Si la hoja se llama `GOODYEAR` y no hay columna `MARCA`, se toma el nombre de la hoja como marca.
+Es **el mismo formato del reporte que ya usás**: una hoja por marca y, en cada hoja,
+una fila por artículo.
 
-La **fila 1** son los títulos de las columnas:
+| Código Provee | Código | Marca | Artículo | Stock |
+|---|---|---|---|---|
+| 110372 | 93247357 | GOODYEAR | 175/65R14 ASSURANCE MAXLIFE 86H XL | 253 |
 
-| MARCA | DISEÑO | MEDIDA | STOCK | PRECIO RUTA | PRECIO MDP | OBSERVACION |
-|---|---|---|---|---|---|---|
-| GOODYEAR | ASSURANCE MAXLIFE | 175/65 R14 | 12 | 118500 | 125900 | |
-| GOODYEAR | EAGLE SPORT | 205/50 R17 | 2 | 236000 | 249900 | ULTIMAS UNIDADES |
-
-**Reglas:**
-
-- **MEDIDA** es la única columna obligatoria.
-- **STOCK**: número. `0` = sin stock (aparece en gris y al final de la lista).
-  Si ponés texto (`SI`, `CONSULTAR`), también lo muestra.
-- **PRECIO RUTA / PRECIO MDP**: solo números. Se aceptan `118500`, `118.500` y `$ 118.500,50`.
-  Si la celda está vacía, en la página dice **"A confirmar"**.
-- **OBSERVACION**: opcional, texto corto que aparece resaltado en la ficha.
+- **El nombre de la hoja es la marca** (`GOODYEAR`, `SPORTRAK`, `ROADKING`).
+  Por eso las Kelly, que están dentro de la hoja GOODYEAR, aparecen como GOODYEAR
+  y el nombre "KELLY" queda en el diseño.
+- La columna del artículo (`Artículo` o `DENOMINACION`) trae **medida y diseño juntos**:
+  la página los separa sola.
+  `175/65R14 ASSURANCE MAXLIFE 86H XL` → medida **175/65 R14** + diseño **ASSURANCE MAXLIFE 86H XL**.
+  Reconoce todos los formatos: `205/55ZR16`, `225/75R16C`, `205R16C`, `295/80R22.5`,
+  `LT245/70R16`, `P225/70R15`, `31X10.50R15LT`, `7.50-16`, `16.9-24`.
+  Si un renglón no tiene medida (las cámaras, por ejemplo), muestra el texto completo.
+- La columna de stock puede llamarse `Stock`, `CANTIDAD`, `UNIDADES` o como la sucursal
+  (`CENTRAL-AUTOVIA`). Si tiene otro nombre, igual toma la última columna de números.
+- Las columnas de código se ignoran solas.
 - Las hojas cuyo nombre empieza con `_` (guión bajo) no se leen.
-- Los títulos pueden variar: también entiende `MODELO`/`DIBUJO` por `DISEÑO`,
-  `CANTIDAD`/`UNIDADES` por `STOCK`, `RUTA` y `MDP` solos, etc.
-- Si arriba de la tabla tenés un título o filas sueltas, no molesta: busca sola la fila de títulos.
 
-### Cartel de "Datos de ejemplo"
+### Tope de 20 unidades
 
-El archivo que viene cargado es una **plantilla de prueba**. Tiene una hoja llamada
-`_INSTRUCCIONES` y, mientras esa hoja exista, la página muestra el cartel amarillo
-*"Datos de ejemplo"*. **Borrá esa hoja** cuando subas tu planilla real y el cartel desaparece.
+Si una medida tiene más de 20 cubiertas, en la web dice **20 u.** igual.
+Ejemplo: 253 en el Excel → el vendedor ve `20 u.`.
+Las que tienen 20 o menos se muestran con el número real (17, 11, 8…).
+Para cambiar ese tope, está en `assets/app.js`, línea `topeStock: 20`.
+
+### Precios
+
+Hoy ninguna medida tiene precio cargado, así que todas las fichas dicen
+**"Precio a confirmar"**. Cuando pases la lista de GOODYEAR se agregan dos columnas
+al Excel, `PRECIO RUTA` y `PRECIO MDP`, y esas fichas pasan a mostrar los dos bloques
+de precio. Las que queden sin precio (SPORTRAK y ROADKING) siguen con la franja gris.
+
+Los precios se escriben solo con números: vale `118500`, `118.500` y `$ 118.500,50`.
 
 ---
 
 ## 3. Cómo busca el vendedor
 
-Escribe en el buscador y los resultados aparecen al instante. Da lo mismo cómo escriba la medida:
+Escribe en el buscador y los resultados aparecen al instante. Da lo mismo cómo
+escriba la medida:
 
 - `17565` → encuentra 175/65 R14
 - `175/65`, `175 65 14`, `175-65-14`, `175/65 r14` → lo mismo
-- También puede buscar por diseño (`maxlife`) o por marca (`roadking`)
+- También busca por diseño (`maxlife`, `wrangler`, `kelly`) o por marca (`roadking`)
 - Se pueden combinar: `17565 goodyear`
 
-Además tiene filtro por marca, botón **"Solo con stock"**, orden (medida, marca, stock o precio)
-y un botón **"Copiar"** en cada ficha para pegar la info en WhatsApp.
+Además tiene filtro por marca, botón **"Solo con stock"**, orden (medida, marca,
+stock o precio) y un botón **"Copiar"** en cada ficha para pegar la info en WhatsApp.
 
-**Los dos precios se distinguen por color:**
+**Cuando haya precios, los dos se distinguen por color:**
 **RUTA = bloque negro** · **MDP = bloque amarillo**, cada uno con su etiqueta.
 
 ---
@@ -85,7 +94,7 @@ Una sola vez:
 
 > El repositorio tiene que ser **público** para usar GitHub Pages con la cuenta gratuita.
 > Si querés que no aparezca en Google, ya viene con la etiqueta `noindex`; de todos modos,
-> cualquiera con el link puede verla, así que no pongas ahí datos que no quieras mostrar.
+> cualquiera con el link puede verla.
 
 ---
 
@@ -109,9 +118,9 @@ data/stock.xlsx     ← EL ÚNICO ARCHIVO QUE TENÉS QUE TOCAR TODOS LOS DÍAS
 
 | Qué pasa | Por qué |
 |---|---|
-| Dice *"No se pudo cargar el stock"* | Todavía no subiste `data/stock.xlsx`, o abriste el `index.html` haciendo doble clic en la PC (hay que entrar por el link de GitHub Pages). |
+| Dice *"No se pudo cargar el stock"* | No se subió `data/stock.xlsx`, o abriste el `index.html` haciendo doble clic en la PC (hay que entrar por el link de GitHub Pages). |
 | Sale *"Sin resultados"* | Probá con menos números (`175` en vez de `175/65R14`). |
-| Un precio dice *"A confirmar"* | Esa celda del Excel está vacía. |
+| Una medida no aparece | Fijate que esa fila tenga algo escrito en la columna del artículo. |
 | No se actualizó | Esperá 1 minuto (GitHub tarda en publicar) y recargá. |
 
 Para probar un Excel antes de subirlo, al pie de la página está

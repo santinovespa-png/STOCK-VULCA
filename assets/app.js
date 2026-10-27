@@ -8,8 +8,9 @@
   var CONFIG = {
     xlsx: 'data/stock.xlsx',
     csv: 'data/stock.csv',
-    ordenMarcas: ['GOODYEAR', 'SPORTRACK', 'ROADKING'],
-    maxRender: 300,
+    ordenMarcas: ['GOODYEAR', 'SPORTRAK', 'SPORTRACK', 'ROADKING'],
+    topeStock: 20,            // si hay mas de 20 unidades, se muestra 20
+    maxRender: 400,
     hojaDemo: '_INSTRUCCIONES'   // mientras exista esta hoja, se avisa que son datos de ejemplo
   };
 
@@ -76,14 +77,17 @@
 
   var ALIAS = {
     marca:  ['MARCA', 'BRAND', 'FABRICANTE'],
-    diseno: ['DISENO', 'DISENIO', 'MODELO', 'DIBUJO', 'PATRON', 'PRODUCTO', 'DESCRIPCION', 'DETALLE', 'ARTICULO'],
+    // columna que trae medida y diseño juntos: "195/55R15 EAGLE SPORT 2 85H SL"
+    articulo: ['ARTICULO', 'DENOMINACION', 'DESCRIPCION', 'PRODUCTO', 'DETALLE'],
+    diseno: ['DISENO', 'DISENIO', 'MODELO', 'DIBUJO', 'PATRON'],
     medida: ['MEDIDA', 'MEDIDAS', 'RODADO', 'TAMANO', 'SIZE', 'CUBIERTA', 'NEUMATICO'],
-    stock:  ['STOCK', 'CANTIDAD', 'CANT', 'UNIDADES', 'DISPONIBLE', 'DISPONIBILIDAD', 'EXISTENCIA', 'EXISTENCIAS'],
+    stock:  ['STOCK', 'CANTIDAD', 'CANT', 'UNIDADES', 'DISPONIBLE', 'DISPONIBILIDAD', 'EXISTENCIA',
+             'EXISTENCIAS', 'CENTRALAUTOVIA', 'CENTRAL', 'AUTOVIA', 'DEPOSITO', 'SUCURSAL'],
     ruta:   ['PRECIORUTA', 'RUTA', 'PRUTA', 'LISTARUTA', 'PVPRUTA', 'PRECIORUTAS'],
     mdp:    ['PRECIOMDP', 'MDP', 'PMDP', 'LISTAMDP', 'PVPMDP', 'PRECIOMARDELPLATA', 'MARDELPLATA'],
     obs:    ['OBSERVACION', 'OBSERVACIONES', 'OBS', 'NOTA', 'NOTAS', 'COMENTARIO', 'COMENTARIOS']
   };
-  var CAMPOS = ['marca', 'diseno', 'medida', 'stock', 'ruta', 'mdp', 'obs'];
+  var CAMPOS = ['marca', 'medida', 'articulo', 'diseno', 'stock', 'ruta', 'mdp', 'obs'];
 
   function campoDe(encabezado) {
     var k = key(encabezado);
@@ -112,45 +116,113 @@
         var campo = campoDe(filas[r][c]);
         if (campo && !(campo in mapa)) { mapa[campo] = c; encontrados++; }
       }
-      if ('medida' in mapa && encontrados >= 2) return { fila: r, mapa: mapa };
+      if (('medida' in mapa || 'articulo' in mapa) && encontrados >= 2) {
+        if (!('stock' in mapa)) columnaStockSuelta(filas, r, mapa);
+        return { fila: r, mapa: mapa };
+      }
     }
     return null;
   }
 
+  // Si la columna de stock tiene un nombre que no conocemos (ej. el nombre de una sucursal),
+  // se toma la ultima columna sin asignar cuyos valores sean numeros.
+  function columnaStockSuelta(filas, filaEnc, mapa) {
+    var usadas = {}, campo;
+    for (campo in mapa) if (mapa.hasOwnProperty(campo)) usadas[mapa[campo]] = true;
+    for (var c = filas[filaEnc].length - 1; c >= 0; c--) {
+      if (usadas[c] || !txt(filas[filaEnc][c])) continue;
+      var num = 0, total = 0;
+      for (var r = filaEnc + 1; r < filas.length && total < 10; r++) {
+        if (!filas[r] || !txt(filas[r][c])) continue;
+        total++;
+        if (aNumero(filas[r][c]) !== null) num++;
+      }
+      if (total >= 3 && num / total >= 0.7) { mapa.stock = c; return; }
+    }
+  }
+
+  /* ---------- medidas ---------- */
+
+  // 195/55R15 · 205/55ZR16 · 225/75R16C · 205R16C · 295/80R22.5 · 235/75R15LT
+  // LT245/70R16 · P225/70R15 · LT7.50R16 · 31X10.50R15LT (flotacion)
+  var RE_RADIAL = /(?:\b(LT|P|ST)\s*)?(\d{1,3}(?:\.\d{1,2})?)(?:\s*X\s*(\d{1,2}(?:\.\d{1,2})?))?(?:\s*\/\s*(\d{2,3}(?:\.\d{1,2})?))?\s*(Z?R)\s*(\d{2}(?:\.\d{1,2})?)(?:([A-Z]{1,2})(?![A-Z]))?/;
+  // 7.50-16 · 10-16.5 · 16.9-24 · 12.5L-15SL · 400/60-15.5  (agro / industrial)
+  var RE_DIAGONAL = /(\d{1,3}(?:\.\d{1,2})?)(?:\/(\d{2,3}))?(?:([A-Z]{1,2})(?![A-Z]))?\s*-\s*(\d{1,2}(?:\.\d{1,2})?)(?:([A-Z]{1,2})(?![A-Z]))?/;
+
+  // Separa la medida del resto del texto.
+  // "195/55R15 EAGLE SPORT 2 85H SL" -> { medida: "195/55 R15", resto: "EAGLE SPORT 2 85H SL" }
+  // orden = [tipo, ancho, perfil, rodado]: 0 radial, 1 flotacion, 2 agro/industrial, 3 sin medida.
+  function analizarMedida(valor) {
+    var s = norm(valor);
+    if (!s) return null;
+
+    var m = RE_RADIAL.exec(s), medida, orden;
+    if (m) {
+      var pref = m[1] || '', ancho = m[2], flot = m[3], perfil = m[4], rodado = m[5] + m[6] + (m[7] || '');
+      // las medidas en pulgadas (7.50 R16, 31X10.50 R15) van despues de las comunes
+      var enPulgadas = flot || parseFloat(ancho) < 100 ? 1 : 0;
+      if (flot) {                                   // 31X10.50 R15LT
+        medida = pref + ancho + 'X' + flot + ' ' + rodado;
+        orden = [enPulgadas, parseFloat(flot) || 0, 0, parseFloat(m[6]) || 0];
+      } else {
+        medida = pref + ancho + (perfil ? '/' + perfil : '') + ' ' + rodado;
+        orden = [enPulgadas, parseFloat(ancho) || 0, parseFloat(perfil) || 0, parseFloat(m[6]) || 0];
+      }
+    } else {
+      m = RE_DIAGONAL.exec(s);
+      if (!m) return { medida: s, resto: '', orden: [3, 0, 0, 0] };
+      medida = m[1] + (m[2] ? '/' + m[2] : '') + (m[3] || '') + '-' + m[4] + (m[5] || '');
+      orden = [2, parseFloat(m[1]) || 0, parseFloat(m[2]) || 0, parseFloat(m[4]) || 0];
+    }
+    var resto = (s.slice(0, m.index) + ' ' + s.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+    return { medida: medida, resto: resto, orden: orden };
+  }
+
   /* ---------- armado de items ---------- */
-
-  function medidaLinda(v) {
-    var m = norm(v).replace(/\s*R\s*(\d)/, ' R$1').replace(/\s*\/\s*/g, '/');
-    return m;
-  }
-
-  function claveMedida(v) {
-    var d = norm(v).match(/(\d{2,3})\s*[\/X.-]?\s*(\d{2,3})?\s*[A-Z]*\s*(\d{2})?/);
-    if (!d) return [9999, 9999, 9999];
-    return [parseInt(d[1], 10) || 9999, parseInt(d[2], 10) || 0, parseInt(d[3], 10) || 0];
-  }
 
   function armarItem(fila, mapa, marcaHoja) {
     function val(campo) { return campo in mapa ? fila[mapa[campo]] : ''; }
 
-    var medida = txt(val('medida'));
-    if (!medida) return null;
+    var medidaCol = txt(val('medida'));
+    var articulo = txt(val('articulo'));
+    var an = analizarMedida(medidaCol || articulo);
+    if (!an) return null;
 
-    var marca = norm(val('marca')) || norm(marcaHoja);
-    var diseno = txt(val('diseno'));
+    // La hoja manda cuando se llama como una de las marcas que vendemos
+    // (en GOODYEAR la columna Marca dice "GOODYEAR KELLY" en algunas filas).
+    var hoja = norm(marcaHoja);
+    var marca = CONFIG.ordenMarcas.indexOf(hoja) >= 0 ? hoja : (norm(val('marca')) || hoja);
+
+    var diseno = norm(val('diseno'));
+    if (!diseno) {
+      if (medidaCol && articulo) {
+        var otro = analizarMedida(articulo);
+        diseno = otro ? otro.resto : norm(articulo);
+      } else {
+        diseno = an.resto;
+      }
+    }
+    // "SPORTRAK SP716 HP 79 H" -> "SP716 HP 79 H" (la marca ya se ve en la ficha)
+    if (marca && diseno.indexOf(marca + ' ') === 0) diseno = diseno.slice(marca.length + 1);
+
     var stockRaw = val('stock');
     var stockNum = aNumero(stockRaw);
+    if (stockNum !== null) {
+      stockNum = Math.round(stockNum);
+      if (CONFIG.topeStock > 0 && stockNum > CONFIG.topeStock) stockNum = CONFIG.topeStock;
+    }
+
     var it = {
       marca: marca,
-      diseno: norm(diseno),
-      medida: medidaLinda(medida),
+      diseno: diseno,
+      medida: an.medida,
       stockNum: stockNum,
       stockTexto: stockNum === null ? norm(stockRaw) : '',
       ruta: aNumero(val('ruta')),
       mdp: aNumero(val('mdp')),
       obs: norm(val('obs'))
     };
-    it.ordenMedida = claveMedida(it.medida);
+    it.ordenMedida = an.orden;
     it.txt = key(it.marca + it.diseno + it.medida + it.obs);
     it.dig = digitos(it.medida);
     return it;
@@ -262,7 +334,7 @@
   }
 
   function cmpMedida(a, b) {
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < a.ordenMedida.length; i++) {
       if (a.ordenMedida[i] !== b.ordenMedida[i]) return a.ordenMedida[i] - b.ordenMedida[i];
     }
     return a.marca.localeCompare(b.marca);
@@ -326,15 +398,16 @@
                   '<span class="marca">' + esc(it.marca || 'SIN MARCA') + '</span>' +
                   badgeStock(it) +
                 '</div>' +
-                '<div class="medida">' + esc(it.medida) + '</div>' +
+                '<div class="medida' + (it.medida.length > 14 ? ' medida--larga' : '') + '">' +
+                  esc(it.medida) + '</div>' +
                 (it.diseno ? '<div class="diseno">' + esc(it.diseno) + '</div>' : '') +
                 (it.obs ? '<div class="obs">' + esc(it.obs) + '</div>' : '') +
               '</div>';
 
-    var precios = '<div class="precios">' +
-                    bloquePrecio('ruta', it.ruta) +
-                    bloquePrecio('mdp', it.mdp) +
-                  '</div>';
+    // sin ningun precio cargado se muestra una sola franja, para no repetir dos "A confirmar"
+    var precios = (it.ruta === null && it.mdp === null)
+      ? '<div class="precios precios--vacio">Precio a confirmar</div>'
+      : '<div class="precios">' + bloquePrecio('ruta', it.ruta) + bloquePrecio('mdp', it.mdp) + '</div>';
 
     var pie = '<div class="card__foot">' +
                 '<button type="button" class="copy" data-i="' + i + '">Copiar</button>' +
