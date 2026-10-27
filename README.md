@@ -55,12 +55,35 @@ Para cambiar ese tope, está en `assets/app.js`, línea `topeStock: 20`.
 
 ### Precios
 
-Hoy ninguna medida tiene precio cargado, así que todas las fichas dicen
-**"Precio a confirmar"**. Cuando pases la lista de GOODYEAR se agregan dos columnas
-al Excel, `PRECIO RUTA` y `PRECIO MDP`, y esas fichas pasan a mostrar los dos bloques
-de precio. Las que queden sin precio (SPORTRAK y ROADKING) siguen con la franja gris.
+Los precios **no** van en el archivo de stock: van en dos archivos aparte, que son las
+listas de Goodyear tal como vienen, sin tocarles nada:
 
-Los precios se escriben solo con números: vale `118500`, `118.500` y `$ 118.500,50`.
+| Archivo en `data/` | Qué es |
+|---|---|
+| `precios_ruta.xlsx` | Lista Consumer **RUTA** |
+| `precios_mdp.xlsx` | Lista Consumer **MDP** |
+
+Cuando Goodyear manda listas nuevas, las renombrás así y las subís a la carpeta `data`
+igual que el stock. No hay que combinarlas ni copiar nada a mano.
+
+**Cómo se junta cada precio con su medida:** por la columna **`CÓDIGO`** de la lista,
+que es la misma que **`Código Provee`** del stock. Es un cruce exacto, no por nombre ni
+por medida, así que no se puede equivocar de producto. Además, antes de mostrar un precio
+se controla que la medida de la lista sea la misma que la del stock; si no coincide, la
+ficha queda sin precio en vez de mostrar uno dudoso.
+
+La fecha de vigencia de la lista (`VIGENCIA 13/10/26`) sale sola y se muestra arriba,
+al lado de la fecha del stock.
+
+**Por qué algunas medidas dicen "Precio a confirmar":**
+
+- No están en la lista Consumer: camión y ómnibus (22.5", 17.5"), agrícolas y cámaras.
+- Son productos que no figuran en la lista con su código (modelos viejos o discontinuados).
+- SPORTRAK y ROADKING: no tienen lista de precios cargada.
+- Un mismo código aparece en dos productos distintos del stock. En ese caso no se le pone
+  precio a ninguno de los dos, para no arriesgar a mostrar el equivocado.
+
+Los precios se muestran redondeados al peso (la lista trae decimales).
 
 ---
 
@@ -104,7 +127,9 @@ Una sola vez:
 index.html          La página
 assets/styles.css   Diseño (colores Goodyear: amarillo #ffd100 y negro)
 assets/app.js       Lectura del Excel + buscador
-data/stock.xlsx     ← EL ÚNICO ARCHIVO QUE TENÉS QUE TOCAR TODOS LOS DÍAS
+data/stock.xlsx         ← se reemplaza TODOS LOS DÍAS
+data/precios_ruta.xlsx  ← lista RUTA, se reemplaza cuando cambian los precios
+data/precios_mdp.xlsx   ← lista MDP, idem
 ```
 
 - Para cambiar el título de arriba, editá `index.html` (busque `STOCK VULCA`).
@@ -121,6 +146,7 @@ data/stock.xlsx     ← EL ÚNICO ARCHIVO QUE TENÉS QUE TOCAR TODOS LOS DÍAS
 | Dice *"No se pudo cargar el stock"* | No se subió `data/stock.xlsx`, o abriste el `index.html` haciendo doble clic en la PC (hay que entrar por el link de GitHub Pages). |
 | Sale *"Sin resultados"* | Probá con menos números (`175` en vez de `175/65R14`). |
 | Una medida no aparece | Fijate que esa fila tenga algo escrito en la columna del artículo. |
+| Una medida dice *"Precio a confirmar"* | Su código no está en la lista de precios. Mirá la sección "Precios". |
 | No se actualizó | Esperá 1 minuto (GitHub tarda en publicar) y recargá. |
 
 Para probar un Excel antes de subirlo, al pie de la página está

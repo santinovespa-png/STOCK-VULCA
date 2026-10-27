@@ -8,6 +8,7 @@
   var CONFIG = {
     xlsx: 'data/stock.xlsx',
     csv: 'data/stock.csv',
+    precios: { ruta: 'data/precios_ruta.xlsx', mdp: 'data/precios_mdp.xlsx' },
     ordenMarcas: ['GOODYEAR', 'SPORTRAK', 'SPORTRACK', 'ROADKING'],
     topeStock: 20,            // si hay mas de 20 unidades, se muestra 20
     maxRender: 400,
@@ -77,6 +78,9 @@
 
   var ALIAS = {
     marca:  ['MARCA', 'BRAND', 'FABRICANTE'],
+    // el codigo de proveedor es el que usa la lista de precios de Goodyear
+    codigo: ['CODIGOPROVEE', 'CODPROVEE', 'CODIGOPROVEEDOR', 'CODIGO', 'COD'],
+    precio: ['PRECIO', 'PRECIOS', 'IMPORTE', 'VALOR'],
     // columna que trae medida y diseño juntos: "195/55R15 EAGLE SPORT 2 85H SL"
     articulo: ['ARTICULO', 'DENOMINACION', 'DESCRIPCION', 'PRODUCTO', 'DETALLE'],
     diseno: ['DISENO', 'DISENIO', 'MODELO', 'DIBUJO', 'PATRON'],
@@ -87,7 +91,7 @@
     mdp:    ['PRECIOMDP', 'MDP', 'PMDP', 'LISTAMDP', 'PVPMDP', 'PRECIOMARDELPLATA', 'MARDELPLATA'],
     obs:    ['OBSERVACION', 'OBSERVACIONES', 'OBS', 'NOTA', 'NOTAS', 'COMENTARIO', 'COMENTARIOS']
   };
-  var CAMPOS = ['marca', 'medida', 'articulo', 'diseno', 'stock', 'ruta', 'mdp', 'obs'];
+  var CAMPOS = ['marca', 'medida', 'articulo', 'diseno', 'stock', 'ruta', 'mdp', 'obs', 'codigo', 'precio'];
 
   function campoDe(encabezado) {
     var k = key(encabezado);
@@ -178,6 +182,11 @@
     return { medida: medida, resto: resto, orden: orden };
   }
 
+  // La lista de precios escribe 245/70R16 donde el stock dice LT245/70R16: es la misma medida.
+  function sinPrefijo(medida) {
+    return txt(medida).replace(/^(LT|ST|P)(?=\d)/, '');
+  }
+
   /* ---------- armado de items ---------- */
 
   function armarItem(fila, mapa, marcaHoja) {
@@ -213,6 +222,7 @@
     }
 
     var it = {
+      codigo: digitos(val('codigo')),
       marca: marca,
       diseno: diseno,
       medida: an.medida,
@@ -223,6 +233,7 @@
       obs: norm(val('obs'))
     };
     it.ordenMedida = an.orden;
+    it.medidaBase = sinPrefijo(an.medida);
     it.txt = key(it.marca + it.diseno + it.medida + it.obs);
     it.dig = digitos(it.medida);
     return it;
@@ -293,13 +304,86 @@
     return items;
   }
 
+
+  /* ---------- listas de precios ---------- */
+
+  // Lee una lista de Goodyear: CÓDIGO | DESCRIPCIÓN | PRECIO, con renglones de titulo
+  // por familia en el medio (ASSURANCE MAXLIFE, EAGLE SPORT...) que se ignoran solos.
+  function leerListaPrecios(filas) {
+    var enc = null, vigencia = '';
+    for (var r = 0; r < Math.min(filas.length, 20) && !enc; r++) {
+      if (!filas[r]) continue;
+      var mapa = {};
+      for (var c = 0; c < filas[r].length; c++) {
+        var t = norm(filas[r][c]);
+        if (!vigencia && t.indexOf('VIGENCIA') >= 0) vigencia = t;
+        var campo = campoDe(filas[r][c]);
+        if ((campo === 'codigo' || campo === 'precio' || campo === 'articulo') && !(campo in mapa)) mapa[campo] = c;
+      }
+      if ('codigo' in mapa && 'precio' in mapa) enc = { fila: r, mapa: mapa };
+    }
+    if (!enc) return null;
+
+    var lista = {}, n = 0;
+    for (var f = enc.fila + 1; f < filas.length; f++) {
+      if (!filas[f]) continue;
+      var cod = digitos(filas[f][enc.mapa.codigo]);
+      var val = aNumero(filas[f][enc.mapa.precio]);
+      if (!cod || val === null) continue;             // titulos de familia y renglones vacios
+      var desc = 'articulo' in enc.mapa ? txt(filas[f][enc.mapa.articulo]) : '';
+      var an = desc ? analizarMedida(desc) : null;
+      lista[cod] = { valor: val, medida: an ? sinPrefijo(an.medida) : '' };
+      n++;
+    }
+    return n ? { lista: lista, vigencia: vigencia, cantidad: n } : null;
+  }
+
+  // Pega los precios al stock cruzando por codigo de proveedor.
+  // No se pone precio si la medida de la lista no es la misma que la del stock,
+  // ni cuando un mismo codigo aparece en dos productos distintos del stock.
+  function aplicarPrecios(items, listas) {
+    var porCodigo = {}, i;
+    for (i = 0; i < items.length; i++) {
+      var c = items[i].codigo;
+      if (c) (porCodigo[c] = porCodigo[c] || []).push(items[i]);
+    }
+
+    function buscar(lista, it) {
+      if (!lista || !it.codigo) return null;
+      var p = lista[it.codigo];
+      if (!p) return null;
+      if (p.medida && p.medida !== it.medidaBase) return null;
+      return p.valor;
+    }
+
+    var puestos = 0, dudosos = 0;
+    for (i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (!it.codigo) continue;
+      var grupo = porCodigo[it.codigo];
+      if (grupo.length > 1) {
+        var distintos = 0, vistos = {};
+        for (var g = 0; g < grupo.length; g++) {
+          var k = grupo[g].medida + '|' + grupo[g].diseno;
+          if (!vistos[k]) { vistos[k] = 1; distintos++; }
+        }
+        if (distintos > 1) { it.codigoDudoso = true; dudosos++; continue; }
+      }
+      var pr = buscar(listas.ruta, it), pm = buscar(listas.mdp, it);
+      if (it.ruta === null && pr !== null) { it.ruta = pr; puestos++; }
+      if (it.mdp === null && pm !== null) it.mdp = pm;
+    }
+    return { puestos: puestos, dudosos: dudosos };
+  }
+
   /* ---------- estado y nodos ---------- */
 
   var DATOS = [], MARCA_SEL = '', SOLO_STOCK = false, ULTIMO_RENDER = [];
   var $ = function (id) { return document.getElementById(id); };
   var elQ = $('q'), elClear = $('clear'), elBrands = $('brands'), elOnly = $('onlyStock'),
       elSort = $('sort'), elCount = $('count'), elRes = $('results'), elEmpty = $('empty'),
-      elCapped = $('capped'), elAlert = $('alert'), elDemo = $('demoNote'), elUpd = $('updated');
+      elCapped = $('capped'), elAlert = $('alert'), elDemo = $('demoNote'), elUpd = $('updated'),
+      elVig = $('vigencia');
 
   function mostrar(el, html) {
     if (html === undefined) { el.hidden = true; return; }
@@ -478,14 +562,18 @@
     } catch (e) { return d.toLocaleString(); }
   }
 
-  function aplicar(items, demo, fecha) {
+  function aplicar(items, demo, fecha, listas) {
     elAlert.hidden = true;
+    if (listas) aplicarPrecios(items, listas);
     DATOS = items;
     MARCA_SEL = '';
     pintarChips();
     mostrar(elDemo);
     if (demo) elDemo.hidden = false;
     elUpd.textContent = fecha ? 'Actualizado ' + fecha : 'Stock cargado';
+    var vig = listas && (listas.vigencia || '');
+    if (vig) { elVig.textContent = vig.replace(/^VIGENCIA\s*/, 'Precios ') ; elVig.hidden = false; }
+    else elVig.hidden = true;
     render();
   }
 
@@ -499,18 +587,43 @@
     render();
   }
 
-  function cargar() {
-    var sinCache = '?v=' + Date.now();
+  function bajarLibro(url) {
+    return fetch(url + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.arrayBuffer().then(function (buf) {
+        return { wb: XLSX.read(new Uint8Array(buf), { type: 'array' }), fecha: fechaLinda(r.headers.get('last-modified')) };
+      });
+    });
+  }
 
+  // Las listas de precios son opcionales: si no estan, el stock se muestra igual.
+  function bajarPrecios() {
+    var nombres = ['ruta', 'mdp'];
+    return Promise.all(nombres.map(function (n) {
+      return bajarLibro(CONFIG.precios[n])
+        .then(function (res) { return leerListaPrecios(filasDeHoja(res.wb, res.wb.SheetNames[0])); })
+        .catch(function () { return null; });
+    })).then(function (res) {
+      var listas = { ruta: null, mdp: null, vigencia: '' };
+      nombres.forEach(function (n, i) {
+        if (!res[i]) return;
+        listas[n] = res[i].lista;
+        if (!listas.vigencia) listas.vigencia = res[i].vigencia;
+      });
+      return listas;
+    });
+  }
+
+  function cargar() {
     function intentarCSV(motivo) {
-      fetch(CONFIG.csv + sinCache, { cache: 'no-store' })
+      fetch(CONFIG.csv + '?v=' + Date.now(), { cache: 'no-store' })
         .then(function (r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           var fecha = fechaLinda(r.headers.get('last-modified'));
           return r.text().then(function (t) {
             var items = itemsDeCSV(t, '');
             if (!items.length) throw new Error('El CSV no tiene filas reconocibles');
-            aplicar(items, false, fecha);
+            aplicar(items, false, fecha, null);
           });
         })
         .catch(function () { errorCarga(motivo); });
@@ -518,16 +631,11 @@
 
     if (typeof XLSX === 'undefined') { intentarCSV('No se pudo cargar la librería de Excel.'); return; }
 
-    fetch(CONFIG.xlsx + sinCache, { cache: 'no-store' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        var fecha = fechaLinda(r.headers.get('last-modified'));
-        return r.arrayBuffer().then(function (buf) {
-          var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-          var res = itemsDeLibro(wb);
-          if (!res.items.length) throw new Error('No se reconocieron columnas (falta MEDIDA).');
-          aplicar(res.items, res.demo, fecha);
-        });
+    bajarLibro(CONFIG.xlsx)
+      .then(function (res) {
+        var datos = itemsDeLibro(res.wb);
+        if (!datos.items.length) throw new Error('No se reconocieron columnas (falta MEDIDA).');
+        return bajarPrecios().then(function (listas) { aplicar(datos.items, datos.demo, res.fecha, listas); });
       })
       .catch(function (e) { intentarCSV(e && e.message ? e.message : 'Error de lectura'); });
   }
@@ -549,7 +657,7 @@
         }
         if (!items.length) { mostrar(elAlert, '<strong>El archivo no tiene columnas reconocibles.</strong> Hace falta al menos una columna MEDIDA.'); return; }
         elAlert.hidden = true;
-        aplicar(items, demo, fechaLinda(file.lastModified));
+        bajarPrecios().then(function (listas) { aplicar(items, demo, fechaLinda(file.lastModified), listas); });
       } catch (e) {
         mostrar(elAlert, '<strong>No se pudo leer el archivo.</strong> ' + esc(e.message || ''));
       }
