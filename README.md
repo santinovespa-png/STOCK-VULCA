@@ -28,9 +28,12 @@ se actualiza sola**, sin tocar nada de código.
 Es **el mismo formato del reporte que ya usás**: una hoja por marca y, en cada hoja,
 una fila por artículo.
 
-| Código Provee | Código | Marca | Artículo | Stock |
-|---|---|---|---|---|
-| 110372 | 93247357 | GOODYEAR | 175/65R14 ASSURANCE MAXLIFE 86H XL | 253 |
+| Código | Marca | Artículo | Total |
+|---|---|---|---|
+| 93247357 | GOODYEAR | 175/65R14 ASSURANCE MAXLIFE 86H XL | 547 |
+
+Los títulos van en la primera fila con datos; si arriba hay filas en blanco o un título
+suelto, no molesta.
 
 - **El nombre de la hoja es la marca** (`GOODYEAR`, `SPORTRAK`, `ROADKING`).
   Por eso las Kelly, que están dentro de la hoja GOODYEAR, aparecen como GOODYEAR
@@ -41,9 +44,9 @@ una fila por artículo.
   Reconoce todos los formatos: `205/55ZR16`, `225/75R16C`, `205R16C`, `295/80R22.5`,
   `LT245/70R16`, `P225/70R15`, `31X10.50R15LT`, `7.50-16`, `16.9-24`.
   Si un renglón no tiene medida (las cámaras, por ejemplo), muestra el texto completo.
-- La columna de stock puede llamarse `Stock`, `CANTIDAD`, `UNIDADES` o como la sucursal
-  (`CENTRAL-AUTOVIA`). Si tiene otro nombre, igual toma la última columna de números.
-- Las columnas de código se ignoran solas.
+- La columna de stock puede llamarse `Total`, `Stock`, `CANTIDAD`, `UNIDADES` o como la
+  sucursal (`CENTRAL-AUTOVIA`). Si tiene otro nombre, igual toma la última columna de números.
+- La columna de código sirve para traer el precio (ver más abajo).
 - Las hojas cuyo nombre empieza con `_` (guión bajo) no se leen.
 
 ### Tope de 20 unidades
@@ -66,11 +69,20 @@ listas de Goodyear tal como vienen, sin tocarles nada:
 Cuando Goodyear manda listas nuevas, las renombrás así y las subís a la carpeta `data`
 igual que el stock. No hay que combinarlas ni copiar nada a mano.
 
-**Cómo se junta cada precio con su medida:** por la columna **`CÓDIGO`** de la lista,
-que es la misma que **`Código Provee`** del stock. Es un cruce exacto, no por nombre ni
-por medida, así que no se puede equivocar de producto. Además, antes de mostrar un precio
-se controla que la medida de la lista sea la misma que la del stock; si no coincide, la
-ficha queda sin precio en vez de mostrar uno dudoso.
+**Cómo se junta cada precio con su medida:** por el **código**, nunca por el nombre ni por
+la medida. Hay dos códigos en juego:
+
+- el de la lista de Goodyear (`CÓDIGO`, tipo 110372), que es el de proveedor;
+- el que trae hoy el reporte de stock (`Código`, tipo 93247357), que es el interno.
+
+El archivo **`data/codigos.csv`** une los dos. Salió del reporte de octubre, que traía las
+dos columnas en la misma fila, así que cada par es dato real y no una suposición. Si algún
+día el reporte vuelve a traer la columna `Código Provee`, la página la usa directo y el
+puente deja de hacer falta: no hay que cambiar nada.
+
+Antes de mostrar un precio se controla que la medida de la lista sea la misma que la del
+stock. Y si dos cubiertas distintas terminan apuntando al mismo renglón de la lista,
+**ninguna de las dos lleva precio**: es preferible que falte antes que mostrar uno equivocado.
 
 La fecha de vigencia de la lista (`VIGENCIA 13/10/26`) sale sola y se muestra arriba,
 al lado de la fecha del stock.
@@ -95,8 +107,10 @@ conectar mal dos cubiertas distintas).
 - No están en la lista Consumer: camión y ómnibus (22.5", 17.5"), agrícolas y cámaras.
 - Son productos que no figuran en la lista con su código (modelos viejos o discontinuados).
 - SPORTRAK y ROADKING: no tienen lista de precios cargada.
-- Un mismo código aparece en dos productos distintos del stock. En ese caso no se le pone
-  precio a ninguno de los dos, para no arriesgar a mostrar el equivocado.
+- Son productos nuevos, que todavía no están en `data/codigos.csv`. Pasame un reporte con
+  la columna `Código Provee` y se resuelven solos.
+- Dos productos distintos apuntan al mismo renglón de la lista. Ahí no se le pone precio a
+  ninguno de los dos, para no arriesgar a mostrar el equivocado.
 
 Los precios se muestran redondeados al peso (la lista trae decimales).
 
@@ -156,6 +170,7 @@ assets/app.js       Lectura del Excel + buscador
 data/stock.xlsx         ← se reemplaza TODOS LOS DÍAS
 data/precios_ruta.xlsx  ← lista RUTA, se reemplaza cuando cambian los precios
 data/precios_mdp.xlsx   ← lista MDP, idem
+data/codigos.csv        ← puente entre el código del stock y el de la lista de precios
 ```
 
 - Para cambiar el título de arriba, editá `index.html` (busque `STOCK VULCA`).
