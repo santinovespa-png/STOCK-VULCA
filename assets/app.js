@@ -9,6 +9,9 @@
     xlsx: 'data/stock.xlsx',
     csv: 'data/stock.csv',
     precios: { ruta: 'data/precios_ruta.xlsx', mdp: 'data/precios_mdp.xlsx' },
+    // Puente entre el codigo interno del stock y el codigo de proveedor que usa
+    // la lista de precios. Sale del reporte que traia las dos columnas.
+    codigos: 'data/codigos.csv',
     // Misma cubierta con codigo distinto en el stock y en la lista de precios.
     // Izquierda: codigo del stock. Derecha: codigo de la lista. Confirmadas una por una.
     equivalencias: {
@@ -94,7 +97,7 @@
     diseno: ['DISENO', 'DISENIO', 'MODELO', 'DIBUJO', 'PATRON'],
     medida: ['MEDIDA', 'MEDIDAS', 'RODADO', 'TAMANO', 'SIZE', 'CUBIERTA', 'NEUMATICO'],
     stock:  ['STOCK', 'CANTIDAD', 'CANT', 'UNIDADES', 'DISPONIBLE', 'DISPONIBILIDAD', 'EXISTENCIA',
-             'EXISTENCIAS', 'CENTRALAUTOVIA', 'CENTRAL', 'AUTOVIA', 'DEPOSITO', 'SUCURSAL'],
+             'EXISTENCIAS', 'TOTAL', 'CENTRALAUTOVIA', 'CENTRAL', 'AUTOVIA', 'DEPOSITO', 'SUCURSAL'],
     ruta:   ['PRECIORUTA', 'RUTA', 'PRUTA', 'LISTARUTA', 'PVPRUTA', 'PRECIORUTAS'],
     mdp:    ['PRECIOMDP', 'MDP', 'PMDP', 'LISTAMDP', 'PVPMDP', 'PRECIOMARDELPLATA', 'MARDELPLATA'],
     obs:    ['OBSERVACION', 'OBSERVACIONES', 'OBS', 'NOTA', 'NOTAS', 'COMENTARIO', 'COMENTARIOS']
@@ -346,42 +349,61 @@
     return n ? { lista: lista, vigencia: vigencia, cantidad: n } : null;
   }
 
-  // Pega los precios al stock cruzando por codigo de proveedor.
-  // No se pone precio si la medida de la lista no es la misma que la del stock,
-  // ni cuando un mismo codigo aparece en dos productos distintos del stock.
+  // CODIGO,CODIGO PROVEE,ARTICULO  (la tercera columna es solo para leerlo)
+  function leerPuente(texto) {
+    var filas = parsearCSV(texto), mapa = {}, n = 0;
+    for (var i = 0; i < filas.length; i++) {
+      var a = digitos(filas[i][0]), b = digitos(filas[i][1]);
+      if (!a || !b) continue;                       // saltea el encabezado
+      mapa[a] = b; n++;
+    }
+    return n ? mapa : null;
+  }
+
+  // A que renglon de la lista de precios corresponde una ficha.
+  // Prueba el codigo del stock, su equivalente de proveedor y las equivalencias
+  // cargadas a mano, y solo acepta uno si la medida es la misma.
+  function codigoDePrecio(it, listas) {
+    var lista = listas.ruta || listas.mdp;
+    if (!it.codigo || !lista) return null;
+    var cands = [it.codigo], i, eq;
+    if (listas.puente && listas.puente[it.codigo]) cands.push(listas.puente[it.codigo]);
+    for (i = cands.length - 1; i >= 0; i--) {
+      eq = CONFIG.equivalencias[cands[i]];
+      if (eq) cands.push(eq);
+    }
+    for (i = 0; i < cands.length; i++) {
+      var p = lista[cands[i]];
+      if (p && (!p.medida || p.medida === it.medidaBase)) return cands[i];
+    }
+    return null;
+  }
+
+  // Pega los precios al stock. Si dos cubiertas distintas terminan apuntando al
+  // mismo renglon de la lista, ninguna lleva precio: es preferible que falte
+  // antes que mostrar uno equivocado.
   function aplicarPrecios(items, listas) {
-    var porCodigo = {}, i;
+    var i, g, uso = {}, puestos = 0, chocados = 0;
     for (i = 0; i < items.length; i++) {
-      var c = items[i].codigo;
-      if (c) (porCodigo[c] = porCodigo[c] || []).push(items[i]);
+      var cod = codigoDePrecio(items[i], listas);
+      if (!cod) continue;
+      (uso[cod] = uso[cod] || []).push(items[i]);
     }
-
-    function buscar(lista, it) {
-      if (!lista || !it.codigo) return null;
-      var p = lista[it.codigo] || lista[CONFIG.equivalencias[it.codigo]];
-      if (!p) return null;
-      if (p.medida && p.medida !== it.medidaBase) return null;
-      return p.valor;
-    }
-
-    var puestos = 0, dudosos = 0;
-    for (i = 0; i < items.length; i++) {
-      var it = items[i];
-      if (!it.codigo) continue;
-      var grupo = porCodigo[it.codigo];
-      if (grupo.length > 1) {
-        var distintos = 0, vistos = {};
-        for (var g = 0; g < grupo.length; g++) {
-          var k = grupo[g].medida + '|' + grupo[g].diseno;
-          if (!vistos[k]) { vistos[k] = 1; distintos++; }
-        }
-        if (distintos > 1) { it.codigoDudoso = true; dudosos++; continue; }
+    for (var c in uso) {
+      if (!uso.hasOwnProperty(c)) continue;
+      var grupo = uso[c], vistos = {}, distintos = 0;
+      for (g = 0; g < grupo.length; g++) {
+        var k = grupo[g].medida + '|' + grupo[g].diseno;
+        if (!vistos[k]) { vistos[k] = 1; distintos++; }
       }
-      var pr = buscar(listas.ruta, it), pm = buscar(listas.mdp, it);
-      if (it.ruta === null && pr !== null) { it.ruta = pr; puestos++; }
-      if (it.mdp === null && pm !== null) it.mdp = pm;
+      if (distintos > 1) { chocados += grupo.length; continue; }
+      for (g = 0; g < grupo.length; g++) {
+        var it = grupo[g];
+        if (it.ruta === null && listas.ruta && listas.ruta[c]) { it.ruta = listas.ruta[c].valor; puestos++; }
+        if (it.mdp === null && listas.mdp && listas.mdp[c]) it.mdp = listas.mdp[c].valor;
+      }
     }
-    return { puestos: puestos, dudosos: dudosos };
+    return { puestos: puestos, chocados: chocados };
   }
 
   /* ---------- estado y nodos ---------- */
@@ -615,15 +637,22 @@
     });
   }
 
-  // Las listas de precios son opcionales: si no estan, el stock se muestra igual.
+  // Las listas de precios y el puente son opcionales: si no estan, el stock se muestra igual.
   function bajarPrecios() {
     var nombres = ['ruta', 'mdp'];
-    return Promise.all(nombres.map(function (n) {
+    var pedidos = nombres.map(function (n) {
       return bajarLibro(CONFIG.precios[n])
         .then(function (res) { return leerListaPrecios(filasDeHoja(res.wb, res.wb.SheetNames[0])); })
         .catch(function () { return null; });
-    })).then(function (res) {
-      var listas = { ruta: null, mdp: null, vigencia: '' };
+    });
+    pedidos.push(
+      fetch(CONFIG.codigos + '?v=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(leerPuente)
+        .catch(function () { return null; })
+    );
+    return Promise.all(pedidos).then(function (res) {
+      var listas = { ruta: null, mdp: null, puente: res[2], vigencia: '' };
       nombres.forEach(function (n, i) {
         if (!res[i]) return;
         listas[n] = res[i].lista;
