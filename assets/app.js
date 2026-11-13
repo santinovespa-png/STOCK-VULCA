@@ -12,6 +12,9 @@
     // Puente entre el codigo interno del stock y el codigo de proveedor que usa
     // la lista de precios. Sale del reporte que traia las dos columnas.
     codigos: 'data/codigos.csv',
+    // Donde vive la pagina, para el boton "Subir el stock"
+    repo: 'santinovespa-png/STOCK-VULCA',
+    rama: 'claude/affectionate-bell-pbcjj5',
     // Misma cubierta con codigo distinto en el stock y en la lista de precios.
     // Izquierda: codigo del stock. Derecha: codigo de la lista. Confirmadas una por una.
     equivalencias: {
@@ -21,6 +24,8 @@
       '117861': '142517'    // 225/45R17 EAGLE SPORT 2
     },
     ordenMarcas: ['GOODYEAR', 'SPORTRAK', 'SPORTRACK', 'ROADKING'],
+    // El reporte a veces nombra las hojas abreviadas (GY, SP, RK)
+    marcasPorHoja: { 'GY': 'GOODYEAR', 'SP': 'SPORTRAK', 'RK': 'ROADKING' },
     topeStock: 20,            // si hay mas de 20 unidades, se muestra 20
     maxRender: 400,
     hojaDemo: '_INSTRUCCIONES'   // mientras exista esta hoja, se avisa que son datos de ejemplo
@@ -211,6 +216,7 @@
     // La hoja manda cuando se llama como una de las marcas que vendemos
     // (en GOODYEAR la columna Marca dice "GOODYEAR KELLY" en algunas filas).
     var hoja = norm(marcaHoja);
+    if (CONFIG.marcasPorHoja[hoja]) hoja = CONFIG.marcasPorHoja[hoja];
     var marca = CONFIG.ordenMarcas.indexOf(hoja) >= 0 ? hoja : (norm(val('marca')) || hoja);
 
     var diseno = norm(val('diseno'));
@@ -413,7 +419,7 @@
   var elQ = $('q'), elClear = $('clear'), elBrands = $('brands'), elOnly = $('onlyStock'),
       elSort = $('sort'), elCount = $('count'), elRes = $('results'), elEmpty = $('empty'),
       elCapped = $('capped'), elAlert = $('alert'), elDemo = $('demoNote'), elUpd = $('updated'),
-      elVig = $('vigencia');
+      elVig = $('vigencia'), elPrueba = $('prueba'), elSubir = $('subir'), elLocal = $('localFile');
 
   function mostrar(el, html) {
     if (html === undefined) { el.hidden = true; return; }
@@ -603,8 +609,9 @@
     } catch (e) { return d.toLocaleString(); }
   }
 
-  function aplicar(items, demo, fecha, listas) {
+  function aplicar(items, demo, fecha, listas, esPrueba) {
     elAlert.hidden = true;
+    elPrueba.hidden = !esPrueba;
     if (listas) aplicarPrecios(items, listas);
     DATOS = items;
     MARCA_SEL = '';
@@ -705,7 +712,7 @@
         }
         if (!items.length) { mostrar(elAlert, '<strong>El archivo no tiene columnas reconocibles.</strong> Hace falta al menos una columna MEDIDA.'); return; }
         elAlert.hidden = true;
-        bajarPrecios().then(function (listas) { aplicar(items, demo, fechaLinda(file.lastModified), listas); });
+        bajarPrecios().then(function (listas) { aplicar(items, demo, fechaLinda(file.lastModified), listas, true); });
       } catch (e) {
         mostrar(elAlert, '<strong>No se pudo leer el archivo.</strong> ' + esc(e.message || ''));
       }
@@ -764,9 +771,19 @@
     document.body.removeChild(ta);
   }
 
-  $('localFile').addEventListener('change', function (ev) {
+  elLocal.addEventListener('change', function (ev) {
     if (ev.target.files && ev.target.files[0]) leerLocal(ev.target.files[0]);
   });
+
+  $('volver').addEventListener('click', function () {
+    elLocal.value = '';
+    elPrueba.hidden = true;
+    elUpd.textContent = 'Cargando…';
+    cargar();
+  });
+
+  // el boton de subir apunta a la carpeta data del repositorio
+  elSubir.href = 'https://github.com/' + CONFIG.repo + '/upload/' + CONFIG.rama + '/data';
 
   cargar();
 })();

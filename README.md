@@ -10,13 +10,23 @@ se actualiza sola**, sin tocar nada de código.
 
 ## 1. Actualizar el stock del día
 
+**Desde la página, que es lo más cómodo:**
+
 1. Sacá el reporte de stock como siempre y guardalo con el nombre **`stock.xlsx`**.
-2. Entrá al repositorio en GitHub → carpeta **`data`**.
-3. Botón **`Add file` → `Upload files`** y arrastrá tu `stock.xlsx`.
+2. Abajo de todo de la página, abrí **"Actualizar el stock"** y apretá el botón
+   **SUBIR EL STOCK A GITHUB**: se abre GitHub justo en la carpeta correcta.
+3. Arrastrá el archivo y apretá el botón verde **`Commit changes`**.
    (Al tener el mismo nombre, reemplaza el anterior.)
-4. Abajo, **`Commit changes`**.
-5. Esperá ~1 minuto y recargá la página. Arriba a la izquierda vas a ver la fecha
-   y hora de la última actualización.
+4. Esperá ~1 minuto y recargá. Arriba a la izquierda vas a ver la fecha y hora
+   de la última actualización.
+
+Hace falta estar con tu cuenta de GitHub. Los vendedores pueden abrir ese botón pero
+no pueden cambiar nada, porque GitHub no se lo permite.
+
+**Para probar antes de subir:** en esa misma sección, abajo, podés elegir un Excel de tu
+computadora y ver cómo queda. Se lee solo en tu navegador y la página te avisa con un
+cartel azul que estás viendo una prueba; el botón **Volver al publicado** te saca de ahí.
+Lo que ven los vendedores no cambia hasta que subís el archivo.
 
 > La página siempre pide la versión más nueva del archivo, así que el vendedor no
 > necesita borrar caché ni nada por el estilo.
@@ -35,7 +45,8 @@ una fila por artículo.
 Los títulos van en la primera fila con datos; si arriba hay filas en blanco o un título
 suelto, no molesta.
 
-- **El nombre de la hoja es la marca** (`GOODYEAR`, `SPORTRAK`, `ROADKING`).
+- **El nombre de la hoja es la marca.** Sirven tanto los nombres completos
+  (`GOODYEAR`, `SPORTRAK`, `ROADKING`) como las abreviaturas `GY`, `SP` y `RK`.
   Por eso las Kelly, que están dentro de la hoja GOODYEAR, aparecen como GOODYEAR
   y el nombre "KELLY" queda en el diseño.
 - La columna del artículo (`Artículo` o `DENOMINACION`) trae **medida y diseño juntos**:

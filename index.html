@@ -55,6 +55,12 @@
 
   <div id="alert" class="note note--error" hidden></div>
 
+  <div id="prueba" class="note note--prueba" hidden>
+    <strong>Estás viendo un archivo de prueba de tu computadora.</strong>
+    Los vendedores siguen viendo el stock publicado.
+    <button type="button" id="volver">Volver al publicado</button>
+  </div>
+
     <div class="statusline">
       <span id="count" class="count"></span>
       <label class="sort">
@@ -84,9 +90,20 @@
   </p>
   <p class="foot__tip">Tocá un precio y se copia solo ese, listo para mandar por WhatsApp.</p>
   <details class="loader">
-    <summary>Probar con un Excel de mi PC</summary>
-    <p>No se sube a ningún lado: se lee solo en este navegador para ver cómo queda.</p>
+    <summary>Actualizar el stock</summary>
+
+    <ol class="pasos">
+      <li>Guardá el reporte del día en tu computadora con el nombre <code>stock.xlsx</code>.</li>
+      <li>Apretá el botón de acá abajo: se abre GitHub en la carpeta correcta.</li>
+      <li>Arrastrá el archivo y apretá el botón verde <strong>Commit changes</strong>.</li>
+    </ol>
+    <p><a class="boton" id="subir" href="#" target="_blank" rel="noopener">Subir el stock a GitHub</a></p>
+    <p class="loader__nota">En un minuto lo ven todos los vendedores. Hace falta estar
+      con tu cuenta de GitHub; los vendedores no pueden cambiar nada.</p>
+
+    <p class="loader__sub">Antes de subirlo, si querés ver cómo queda:</p>
     <input type="file" id="localFile" accept=".xlsx,.xls,.csv">
+    <p class="loader__nota">Se lee solo en este navegador, no se sube a ningún lado.</p>
   </details>
   <p class="foot__small">Marcas y nombres de producto pertenecen a sus respectivos titulares. Uso interno.</p>
 </footer>
