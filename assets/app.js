@@ -21,7 +21,16 @@
       '110740': '117315',   // 215/65R16 WRANGLER FORTITUDE HT
       '118403': '141066',   // 205/45R17 EAGLE TOURING
       '110842': '108303',   // 215/45R16 EFFICIENTGRIP PERFORMANCE
-      '117861': '142517'    // 225/45R17 EAGLE SPORT 2
+      '117861': '142517',   // 225/45R17 EAGLE SPORT 2
+      // Goodyear renumero estas en la lista de noviembre 2026
+      '110325': '110525',   // 185/65R14 ASSURANCE MAXLIFE
+      '110371': '110523',   // 175/70R13 ASSURANCE MAXLIFE
+      '110374': '110526',   // 185/70R14 ASSURANCE MAXLIFE
+      '110375': '110527',   // 165/70R13 ASSURANCE MAXLIFE
+      '111182': '142080',   // 195/75R16C CARGO MARATHON 2
+      '111690': '142183',   // 255/55R20 WRANGLER TERRITORY HT
+      '118140': '142093',   // 205/60R15 EFFICIENTGRIP PERFORMANCE
+      '141271': '141373'    // 195/55R16 EAGLE TOURING
     },
     ordenMarcas: ['GOODYEAR', 'SPORTRAK', 'SPORTRACK', 'ROADKING'],
     // El reporte a veces nombra las hojas abreviadas (GY, SP, RK)
@@ -136,6 +145,8 @@
         var campo = campoDe(filas[r][c]);
         if (campo && !(campo in mapa)) { mapa[campo] = c; encontrados++; }
       }
+      // una hoja con columna PRECIO y sin columna de stock es una lista de precios
+      if ('precio' in mapa && !('stock' in mapa)) continue;
       if (('medida' in mapa || 'articulo' in mapa) && encontrados >= 2) {
         if (!('stock' in mapa)) columnaStockSuelta(filas, r, mapa);
         return { fila: r, mapa: mapa };
@@ -419,7 +430,8 @@
   var elQ = $('q'), elClear = $('clear'), elBrands = $('brands'), elOnly = $('onlyStock'),
       elSort = $('sort'), elCount = $('count'), elRes = $('results'), elEmpty = $('empty'),
       elCapped = $('capped'), elAlert = $('alert'), elDemo = $('demoNote'), elUpd = $('updated'),
-      elVig = $('vigencia'), elPrueba = $('prueba'), elSubir = $('subir'), elLocal = $('localFile');
+      elVig = $('vigencia'), elPrueba = $('prueba'), elSubir = $('subir'),
+      elSubirPrecios = $('subirPrecios'), elLocal = $('localFile');
 
   function mostrar(el, html) {
     if (html === undefined) { el.hidden = true; return; }
@@ -609,10 +621,14 @@
     } catch (e) { return d.toLocaleString(); }
   }
 
-  function aplicar(items, demo, fecha, listas, esPrueba) {
+  function aplicar(items, demo, fecha, listas, aviso) {
     elAlert.hidden = true;
-    elPrueba.hidden = !esPrueba;
-    if (listas) aplicarPrecios(items, listas);
+    var cuenta = listas ? aplicarPrecios(items, listas) : null;
+    if (aviso) {
+      elPrueba.querySelector('.prueba__txt').innerHTML =
+        aviso.replace('{n}', cuenta ? cuenta.puestos : 0).replace('{total}', items.length);
+      elPrueba.hidden = false;
+    } else elPrueba.hidden = true;
     DATOS = items;
     MARCA_SEL = '';
     pintarChips();
@@ -669,7 +685,7 @@
     });
   }
 
-  function cargar() {
+  function cargar(prueba) {
     function intentarCSV(motivo) {
       fetch(CONFIG.csv + '?v=' + Date.now(), { cache: 'no-store' })
         .then(function (r) {
@@ -678,7 +694,7 @@
           return r.text().then(function (t) {
             var items = itemsDeCSV(t, '');
             if (!items.length) throw new Error('El CSV no tiene filas reconocibles');
-            aplicar(items, false, fecha, null);
+            aplicar(items, false, fecha, null, '');
           });
         })
         .catch(function () { errorCarga(motivo); });
@@ -690,29 +706,83 @@
       .then(function (res) {
         var datos = itemsDeLibro(res.wb);
         if (!datos.items.length) throw new Error('No se reconocieron columnas (falta MEDIDA).');
-        return bajarPrecios().then(function (listas) { aplicar(datos.items, datos.demo, res.fecha, listas); });
+        return bajarPrecios().then(function (listas) {
+          if (prueba) {
+            listas[prueba.tipo] = prueba.lista;
+            if (prueba.vigencia) listas.vigencia = prueba.vigencia;
+          }
+          aplicar(datos.items, datos.demo, res.fecha, listas, prueba ? prueba.aviso : '');
+        });
       })
       .catch(function (e) { intentarCSV(e && e.message ? e.message : 'Error de lectura'); });
   }
 
   /* ---------- archivo local (solo para probar) ---------- */
 
+  // La lista dice RUTA o MDP en el nombre de la hoja o del archivo
+  function tipoDeLista(wb, nombreArchivo) {
+    var fuentes = (wb.SheetNames || []).concat([nombreArchivo || '']);
+    for (var i = 0; i < fuentes.length; i++) {
+      var t = key(fuentes[i]);
+      if (t.indexOf('MDP') >= 0) return 'mdp';
+      if (t.indexOf('RUTA') >= 0) return 'ruta';
+    }
+    return null;
+  }
+
   function leerLocal(file) {
     var fr = new FileReader();
     var esCSV = /\.csv$/i.test(file.name);
     fr.onload = function () {
       try {
-        var items, demo = false;
-        if (esCSV) {
-          items = itemsDeCSV(String(fr.result), '');
-        } else {
+        if (!esCSV) {
           var wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
+
+          // 1) una lista de precios: se prueba sobre el stock publicado
+          var lp = leerListaPrecios(filasDeHoja(wb, wb.SheetNames[0]));
+          if (lp) {
+            var tipo = tipoDeLista(wb, file.name);
+            if (!tipo) {
+              mostrar(elAlert, '<strong>No sé si es la lista RUTA o la MDP.</strong> ' +
+                'Poné RUTA o MDP en el nombre del archivo y probá de nuevo.');
+              return;
+            }
+            elAlert.hidden = true;
+            cargar({
+              tipo: tipo,
+              lista: lp.lista,
+              vigencia: lp.vigencia,
+              aviso: '<strong>Probando la lista ' + tipo.toUpperCase() + ' de tu computadora</strong> (' +
+                     lp.cantidad + ' precios): quedan <strong>{n}</strong> medidas con precio. ' +
+                     'Los vendedores siguen viendo la lista publicada.'
+            });
+            return;
+          }
+
+          // 2) un reporte de stock
           var res = itemsDeLibro(wb);
-          items = res.items; demo = res.demo;
+          if (!res.items.length) {
+            mostrar(elAlert, '<strong>El archivo no tiene columnas reconocibles.</strong> ' +
+              'Para el stock hace falta la columna del artículo; para una lista de precios, CÓDIGO y PRECIO.');
+            return;
+          }
+          elAlert.hidden = true;
+          bajarPrecios().then(function (listas) {
+            aplicar(res.items, res.demo, fechaLinda(file.lastModified), listas,
+              '<strong>Estás viendo un stock de prueba de tu computadora</strong> ({total} medidas). ' +
+              'Los vendedores siguen viendo el publicado.');
+          });
+          return;
         }
-        if (!items.length) { mostrar(elAlert, '<strong>El archivo no tiene columnas reconocibles.</strong> Hace falta al menos una columna MEDIDA.'); return; }
+
+        var items = itemsDeCSV(String(fr.result), '');
+        if (!items.length) { mostrar(elAlert, '<strong>El CSV no tiene columnas reconocibles.</strong>'); return; }
         elAlert.hidden = true;
-        bajarPrecios().then(function (listas) { aplicar(items, demo, fechaLinda(file.lastModified), listas, true); });
+        bajarPrecios().then(function (listas) {
+          aplicar(items, false, fechaLinda(file.lastModified), listas,
+            '<strong>Estás viendo un stock de prueba de tu computadora</strong> ({total} medidas). ' +
+            'Los vendedores siguen viendo el publicado.');
+        });
       } catch (e) {
         mostrar(elAlert, '<strong>No se pudo leer el archivo.</strong> ' + esc(e.message || ''));
       }
@@ -783,7 +853,8 @@
   });
 
   // el boton de subir apunta a la carpeta data del repositorio
-  elSubir.href = 'https://github.com/' + CONFIG.repo + '/upload/' + CONFIG.rama + '/data';
+  elSubir.href = elSubirPrecios.href =
+    'https://github.com/' + CONFIG.repo + '/upload/' + CONFIG.rama + '/data';
 
   cargar();
 })();

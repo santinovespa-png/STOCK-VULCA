@@ -201,7 +201,16 @@ button.precio:focus-visible{outline:3px solid var(--azul);outline-offset:-3px}
 .loader summary{cursor:pointer;font-weight:700;color:var(--texto)}
 .loader p{font-size:12.5px;margin:7px 0}
 .loader__nota{color:var(--texto-2)}
-.loader__sub{margin-top:18px !important;font-weight:700;color:var(--texto)}
+.loader__h{
+  font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--texto);margin:22px 0 2px;
+  border-top:1px solid var(--linea);padding-top:16px;
+}
+.loader__h:first-of-type{border-top:0;padding-top:0;margin-top:14px}
+.tabla{border-collapse:collapse;font-size:12.5px;margin:8px 0}
+.tabla th,.tabla td{border:1px solid var(--linea);padding:6px 9px;text-align:left}
+.tabla th{background:#f3f4f6;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px}
+.prueba__txt{flex:1 1 200px}
 .pasos{margin:10px 0;padding-left:20px;font-size:13px;line-height:1.7}
 .pasos code{background:#eef0f3;padding:1px 5px;border-radius:4px}
 .boton{

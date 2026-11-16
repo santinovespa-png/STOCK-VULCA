@@ -56,8 +56,7 @@
   <div id="alert" class="note note--error" hidden></div>
 
   <div id="prueba" class="note note--prueba" hidden>
-    <strong>Estás viendo un archivo de prueba de tu computadora.</strong>
-    Los vendedores siguen viendo el stock publicado.
+    <span class="prueba__txt"></span>
     <button type="button" id="volver">Volver al publicado</button>
   </div>
 
@@ -90,21 +89,33 @@
   </p>
   <p class="foot__tip">Tocá un precio y se copia solo ese, listo para mandar por WhatsApp.</p>
   <details class="loader">
-    <summary>Actualizar el stock</summary>
+    <summary>Actualizar stock y precios</summary>
 
+    <h3 class="loader__h">Stock &middot; todos los días</h3>
     <ol class="pasos">
-      <li>Guardá el reporte del día en tu computadora con el nombre <code>stock.xlsx</code>.</li>
-      <li>Apretá el botón de acá abajo: se abre GitHub en la carpeta correcta.</li>
+      <li>Guardá el reporte del día con el nombre <code>stock.xlsx</code>.</li>
+      <li>Apretá el botón: se abre GitHub en la carpeta correcta.</li>
       <li>Arrastrá el archivo y apretá el botón verde <strong>Commit changes</strong>.</li>
     </ol>
-    <p><a class="boton" id="subir" href="#" target="_blank" rel="noopener">Subir el stock a GitHub</a></p>
-    <p class="loader__nota">En un minuto lo ven todos los vendedores. Hace falta estar
-      con tu cuenta de GitHub; los vendedores no pueden cambiar nada.</p>
+    <p><a class="boton" id="subir" href="#" target="_blank" rel="noopener">Subir el stock</a></p>
 
-    <p class="loader__sub">Antes de subirlo, si querés ver cómo queda:</p>
+    <h3 class="loader__h">Precios de Goodyear &middot; cuando cambia la lista</h3>
+    <p>Son <strong>dos archivos</strong>. Renombralos así antes de subirlos, si no la página no los encuentra:</p>
+    <table class="tabla">
+      <tr><th>Lista que te manda Goodyear</th><th>Nombre con el que la subís</th></tr>
+      <tr><td>Lista Consumer <strong>RUTA</strong></td><td><code>precios_ruta.xlsx</code></td></tr>
+      <tr><td>Lista Consumer <strong>MDP</strong></td><td><code>precios_mdp.xlsx</code></td></tr>
+    </table>
+    <p><a class="boton" id="subirPrecios" href="#" target="_blank" rel="noopener">Subir los precios</a></p>
+    <p class="loader__nota">Podés arrastrar los dos juntos. Si subís uno solo, el otro queda
+      como estaba y las fichas mostrarían precios de dos listas distintas.</p>
+
+    <h3 class="loader__h">Probar antes de subir</h3>
+    <p>Elegí un archivo de tu computadora, sea el stock o una lista de precios, y mirá cómo queda:</p>
     <input type="file" id="localFile" accept=".xlsx,.xls,.csv">
     <p class="loader__nota">Se lee solo en este navegador, no se sube a ningún lado.</p>
   </details>
+
   <p class="foot__small">Marcas y nombres de producto pertenecen a sus respectivos titulares. Uso interno.</p>
 </footer>
 

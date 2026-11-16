@@ -23,10 +23,12 @@ se actualiza sola**, sin tocar nada de código.
 Hace falta estar con tu cuenta de GitHub. Los vendedores pueden abrir ese botón pero
 no pueden cambiar nada, porque GitHub no se lo permite.
 
-**Para probar antes de subir:** en esa misma sección, abajo, podés elegir un Excel de tu
-computadora y ver cómo queda. Se lee solo en tu navegador y la página te avisa con un
-cartel azul que estás viendo una prueba; el botón **Volver al publicado** te saca de ahí.
-Lo que ven los vendedores no cambia hasta que subís el archivo.
+**Para probar antes de subir:** en esa misma sección, abajo, podés elegir un archivo de tu
+computadora —el stock o una lista de precios, se da cuenta sola de cuál es— y ver cómo
+queda. Si es una lista de precios, la prueba sobre el stock publicado y te dice cuántas
+medidas quedarían con precio. Se lee solo en tu navegador, la página te avisa con un cartel
+azul que es una prueba, y el botón **Volver al publicado** te saca de ahí. Lo que ven los
+vendedores no cambia hasta que subís el archivo.
 
 > La página siempre pide la versión más nueva del archivo, así que el vendedor no
 > necesita borrar caché ni nada por el estilo.
@@ -78,7 +80,12 @@ listas de Goodyear tal como vienen, sin tocarles nada:
 | `precios_mdp.xlsx` | Lista Consumer **MDP** |
 
 Cuando Goodyear manda listas nuevas, las renombrás así y las subís a la carpeta `data`
-igual que el stock. No hay que combinarlas ni copiar nada a mano.
+igual que el stock. No hay que combinarlas ni copiar nada a mano: abajo de la página,
+en **"Actualizar stock y precios"**, está el botón **SUBIR LOS PRECIOS**, que abre GitHub
+en la carpeta correcta. Podés arrastrar los dos archivos juntos.
+
+**Subí siempre las dos listas.** Si cambiás solo una, las fichas quedan con el precio RUTA
+de una lista y el MDP de otra.
 
 **Cómo se junta cada precio con su medida:** por el **código**, nunca por el nombre ni por
 la medida. Hay dos códigos en juego:
@@ -109,9 +116,13 @@ y otro en la lista (código viejo y nuevo). Esos casos se conectan a mano en
 '117861': '142517'    // 225/45R17 EAGLE SPORT 2
 ```
 
-A la izquierda el código del stock, a la derecha el de la lista. Si aparece otro caso,
-pasámelo y lo agrego (también ahí se controla que la medida coincida, así que no se puede
-conectar mal dos cubiertas distintas).
+A la izquierda el código del stock, a la derecha el de la lista. Hay ocho más, de cubiertas
+que Goodyear renumeró en la lista de noviembre 2026 (la misma medida y el mismo diseño
+pasaron de un código a otro). Si aparece otro caso, pasámelo y lo agrego; ahí también se
+controla que la medida coincida, así que no se pueden conectar mal dos cubiertas distintas.
+
+Ojo con esto: cuando Goodyear saca un producto de la lista, esa medida pasa a decir
+"Precio a confirmar". No es un error de la página, es que ya no tiene precio de lista.
 
 **Por qué algunas medidas dicen "Precio a confirmar":**
 
