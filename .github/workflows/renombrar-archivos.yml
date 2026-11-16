@@ -1,0 +1,61 @@
+# Cuando se sube un archivo a data/, lo deja con el nombre que busca la pagina.
+# Asi se puede arrastrar la lista tal como la manda Goodyear, sin renombrarla a mano.
+name: Renombrar archivos de data
+
+on:
+  push:
+    branches: [claude/affectionate-bell-pbcjj5]
+    paths: ['data/**']
+
+jobs:
+  renombrar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dejar los nombres como los busca la pagina
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          declare -A candidatos=()
+          for f in data/*.xlsx; do
+            base=$(basename "$f")
+            case "$base" in
+              stock.xlsx|precios_ruta.xlsx|precios_mdp.xlsx) continue ;;
+            esac
+            up=$(printf '%s' "$base" | tr '[:lower:]' '[:upper:]')
+            destino=""
+            case "$up" in
+              *MDP*)           destino="precios_mdp.xlsx" ;;
+              *RUTA*)          destino="precios_ruta.xlsx" ;;
+              *STOCK*|*SOTCK*) destino="stock.xlsx" ;;
+            esac
+            if [ -z "$destino" ]; then
+              echo "  $base -> no se toca (no dice STOCK, RUTA ni MDP)"
+              continue
+            fi
+            candidatos["$destino"]="${candidatos["$destino"]:-}${candidatos["$destino"]:+|}$base"
+          done
+          for destino in "${!candidatos[@]}"; do
+            lista="${candidatos[$destino]}"
+            if [[ "$lista" == *"|"* ]]; then
+              echo "  OJO: hay mas de un archivo para $destino ($lista). No se toca ninguno."
+              continue
+            fi
+            echo "  $lista -> $destino"
+            mv -f "data/$lista" "data/$destino"
+          done
+
+      - name: Guardar el cambio
+        run: |
+          if [ -n "$(git status --porcelain data)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A data
+            git commit -m "Renombra los archivos subidos a data"
+            git push
+          else
+            echo "No hubo nada que renombrar."
+          fi
