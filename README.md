@@ -87,6 +87,16 @@ en la carpeta correcta. Podés arrastrar los dos archivos juntos.
 **Subí siempre las dos listas.** Si cambiás solo una, las fichas quedan con el precio RUTA
 de una lista y el MDP de otra.
 
+**No hace falta renombrarlas a mano.** Cada vez que entra un archivo a `data`, GitHub lo
+renombra solo mirando si el nombre dice STOCK, RUTA o MDP
+(`.github/workflows/renombrar-archivos.yml`). Así podés arrastrar la lista tal como la
+manda Goodyear, `LISTA CONSUMER RUTA NOV 26.xlsx` y todo. Tarda unos segundos y queda un
+commit de `github-actions` avisando qué renombró.
+
+Dos cosas que el automatismo **no** hace, a propósito: si subís dos archivos que apuntan al
+mismo destino (por ejemplo dos stock juntos) no toca ninguno, y si el nombre no dice ninguna
+de esas tres palabras lo deja como está. Para sacarlo, se borra ese archivo `.yml`.
+
 **Cómo se junta cada precio con su medida:** por el **código**, nunca por el nombre ni por
 la medida. Hay dos códigos en juego:
 
