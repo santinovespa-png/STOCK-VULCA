@@ -24,6 +24,12 @@
     // true: tocar el precio abre WhatsApp con el texto listo (y ademas lo copia).
     // false: solo lo copia, como antes.
     whatsapp: true,
+    // Fotos recortadas de los posters de Sportrak, una por diseño
+    fotos: {
+      carpeta: 'assets/cubiertas/',
+      disenos: ['SP708', 'SP716', 'SP726', 'SP758', 'SP766', 'SP778',
+                'SP786', 'SP788', 'SP789', 'SP796', 'SP799']
+    },
     // Donde vive la pagina, para el boton "Subir el stock"
     repo: 'santinovespa-png/STOCK-VULCA',
     rama: 'claude/affectionate-bell-pbcjj5',
@@ -496,7 +502,9 @@
       elSort = $('sort'), elCount = $('count'), elRes = $('results'), elEmpty = $('empty'),
       elCapped = $('capped'), elAlert = $('alert'), elDemo = $('demoNote'), elUpd = $('updated'),
       elVig = $('vigencia'), elPrueba = $('prueba'), elSubir = $('subir'),
-      elSubirPrecios = $('subirPrecios'), elLocal = $('localFile');
+      elSubirPrecios = $('subirPrecios'), elLocal = $('localFile'),
+      elEnvio = $('envio'), elEnvioFoto = $('envioFoto'), elEnvioTxt = $('envioTxt'),
+      elEnvioConFoto = $('envioConFoto'), elEnvioSolo = $('envioSolo'), elEnvioNota = $('envioNota');
 
   function mostrar(el, html) {
     if (html === undefined) { el.hidden = true; return; }
@@ -585,6 +593,12 @@
   var ICONO_WA = '<svg class="precio__icono" viewBox="0 0 24 24" aria-hidden="true">' +
     '<path d="M12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.15 1.59 5.95L.06 24l6.3-1.65a11.9 11.9 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.89C23.94 5.34 18.6 0 12.05 0zm0 21.78a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88zm5.42-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.47-2.39-1.48-.89-.79-1.48-1.76-1.66-2.06-.17-.3-.02-.46.13-.6.14-.14.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.21-.25-.58-.49-.5-.67-.51h-.57c-.2 0-.52.08-.8.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.42.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35z"/></svg>';
 
+  function fotoDe(it) {
+    if (!it.codigoSP) return '';
+    return CONFIG.fotos.disenos.indexOf(it.codigoSP) >= 0
+      ? CONFIG.fotos.carpeta + it.codigoSP + '.jpg' : '';
+  }
+
   function linkWhatsapp(texto) {
     return 'https://wa.me/?text=' + encodeURIComponent(texto);
   }
@@ -622,7 +636,7 @@
 
   function textoParaCopiar(it, tipo) {
     var valor = conDescuento(tipo === 'ruta' ? it.ruta : it.mdp, it.desc);
-    return [it.marca, it.diseno, it.medida].filter(Boolean).join(' ') + ' ' + fmtPesos(valor);
+    return [it.marca, it.medida, it.diseno].filter(Boolean).join(' ') + ' ' + fmtPesos(valor);
   }
 
   function tarjeta(it, i) {
@@ -899,6 +913,98 @@
     if (esCSV) fr.readAsText(file); else fr.readAsArrayBuffer(file);
   }
 
+
+  /* ---------- cartelito para mandar por WhatsApp ---------- */
+
+  var ENVIO = null;   // { texto, foto, link, archivo }
+
+  function puedeMandarFoto(archivo) {
+    return !!(navigator.canShare && archivo && navigator.canShare({ files: [archivo] }));
+  }
+
+  // Se baja la foto apenas se abre el cartel, asi al tocar el boton ya esta lista
+  // (si se bajara despues, el navegador puede bloquear el compartir).
+  function prepararArchivo(url, nombre) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    }).then(function (b) {
+      return new File([b], nombre, { type: b.type || 'image/jpeg' });
+    });
+  }
+
+  function abrirEnvio(it, tipo) {
+    var texto = textoParaCopiar(it, tipo);
+    var foto = fotoDe(it);
+    ENVIO = { texto: texto, foto: foto, link: linkWhatsapp(texto), archivo: null };
+
+    elEnvioFoto.src = foto;
+    elEnvioFoto.alt = it.diseno || it.medida;
+    elEnvioTxt.textContent = texto;
+    elEnvioNota.hidden = true;
+    elEnvioConFoto.textContent = 'Precio + foto';
+    elEnvioConFoto.disabled = false;
+    elEnvio.hidden = false;
+    copiar(texto);                                  // queda copiado igual
+
+    prepararArchivo(foto, (it.codigoSP || 'cubierta') + '.jpg').then(function (f) {
+      if (!ENVIO || ENVIO.foto !== foto) return;
+      ENVIO.archivo = f;
+      if (!puedeMandarFoto(f)) {
+        elEnvioConFoto.textContent = 'Bajar la foto';
+        mostrarNota('Este navegador no manda la foto solo. Tocá "Bajar la foto" y adjuntala ' +
+                    'en WhatsApp; el precio ya te quedó copiado.');
+      }
+    }, function () {
+      elEnvioConFoto.disabled = true;
+      mostrarNota('No se pudo cargar la foto. Podés mandar solo el precio.');
+    });
+  }
+
+  function mostrarNota(txtNota) {
+    elEnvioNota.textContent = txtNota;
+    elEnvioNota.hidden = false;
+  }
+
+  function cerrarEnvio() { elEnvio.hidden = true; ENVIO = null; }
+
+  function bajarArchivo(archivo) {
+    var url = URL.createObjectURL(archivo);
+    var a = document.createElement('a');
+    a.href = url; a.download = archivo.name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  elEnvioConFoto.addEventListener('click', function () {
+    if (!ENVIO) return;
+    var f = ENVIO.archivo;
+    if (f && puedeMandarFoto(f)) {
+      navigator.share({ files: [f], text: ENVIO.texto })
+        .then(cerrarEnvio, function () { /* lo cancelo el usuario */ });
+      return;
+    }
+    if (f) {
+      bajarArchivo(f);
+      mostrarNota('Foto descargada y precio copiado. Abrí WhatsApp, adjuntala y pegá el precio.');
+      return;
+    }
+    mostrarNota('La foto todavía se está cargando, probá de nuevo en un segundo.');
+  });
+
+  elEnvioSolo.addEventListener('click', function () {
+    if (!ENVIO) return;
+    var link = ENVIO.link;
+    cerrarEnvio();
+    window.open(link, '_blank', 'noopener');
+  });
+
+  $('envioCerrar').addEventListener('click', cerrarEnvio);
+  elEnvio.addEventListener('click', function (ev) { if (ev.target === elEnvio) cerrarEnvio(); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !elEnvio.hidden) cerrarEnvio();
+  });
+
   /* ---------- eventos ---------- */
 
   elQ.addEventListener('input', render);
@@ -948,6 +1054,13 @@
     var tipo = b.getAttribute('data-precio');
     if ((tipo === 'ruta' ? it.ruta : it.mdp) === null) return;
     var texto = textoParaCopiar(it, tipo);
+
+    if (CONFIG.whatsapp && fotoDe(it)) {       // hay foto: primero preguntamos
+      ev.preventDefault();
+      abrirEnvio(it, tipo);
+      return;
+    }
+
     var avisar = function () {
       var tag = b.querySelector('.precio__tag');
       if (!tag || b.classList.contains('precio--ok')) return;
@@ -960,6 +1073,13 @@
       navigator.clipboard.writeText(texto).then(avisar, function () { copiarViejo(texto, avisar); });
     } else copiarViejo(texto, avisar);
   });
+
+  function copiar(texto, ok) {
+    ok = ok || function () {};
+    if (navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(texto).then(ok, function () { copiarViejo(texto, ok); });
+    else copiarViejo(texto, ok);
+  }
 
   function copiarViejo(texto, ok) {
     var ta = document.createElement('textarea');

@@ -192,11 +192,24 @@ stock o precio).
 
 ### Mandar un precio por WhatsApp
 
-Cada precio es un atajo a WhatsApp. Tocando el bloque se abre WhatsApp con **solo ese
-precio** ya escrito, y el vendedor elige a quién mandárselo:
+Cada precio es un atajo a WhatsApp. Tocando el bloque se manda **solo ese precio**, con el
+texto en este orden: **marca, medida, diseño y precio**.
 
-- Tocás el bloque amarillo → `GOODYEAR ASSURANCE MAXLIFE 86H XL 175/65 R14 $ 98.193`
+- Tocás el bloque amarillo → `GOODYEAR 175/65 R14 ASSURANCE MAXLIFE 86H XL $ 98.193`
 - Tocás el negro → lo mismo pero con el precio MDP
+
+**Con foto.** Las cubiertas Sportrak tienen la foto de su diseño en `assets/cubiertas/`
+(`SP716.jpg`, `SP786.jpg`...), recortadas de los dos posters de Sportrak. Cuando el diseño
+tiene foto, al tocar el precio aparece un cartelito para elegir **Precio + foto** o
+**Solo el precio**.
+
+Con foto usa el menú de compartir del celular, donde el vendedor elige WhatsApp y el
+contacto. En una computadora, que no puede compartir archivos así, el botón pasa a decir
+**Bajar la foto**: la descarga y deja el precio copiado para adjuntarlo a mano. Si el diseño
+no tiene foto, tocar el precio va derecho a WhatsApp como siempre.
+
+Para agregar fotos de otros diseños, se ponen en esa carpeta con el nombre del código
+(`SP778.jpg`) y se agregan a la lista `fotos.disenos` en `assets/app.js`.
 
 De esta manera el cliente nunca recibe los dos precios juntos. El precio además queda
 **copiado**, por si lo quieren pegar en otro lado, y el bloque avisa **✓ COPIADO** por un
