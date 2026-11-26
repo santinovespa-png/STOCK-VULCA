@@ -12,6 +12,15 @@
     // Puente entre el codigo interno del stock y el codigo de proveedor que usa
     // la lista de precios. Sale del reporte que traia las dos columnas.
     codigos: 'data/codigos.csv',
+    // Sportrak manda la lista en PDF y sin codigo, asi que se cruza por medida + diseño
+    sportrak: 'data/precios_sportrak.csv',
+    // Descuentos encadenados: cada uno se aplica sobre lo que quedo del anterior
+    descuentos: [
+      { id: '',    etiqueta: 'Lista', pasos: [] },
+      { id: 'a',   etiqueta: '6+5+5', pasos: [6, 5, 5] },
+      { id: 'b',   etiqueta: '6+5',   pasos: [6, 5] }
+    ],
+    marcasConDescuento: ['SPORTRAK', 'SPORTRACK'],
     // Donde vive la pagina, para el boton "Subir el stock"
     repo: 'santinovespa-png/STOCK-VULCA',
     rama: 'claude/affectionate-bell-pbcjj5',
@@ -209,6 +218,13 @@
     return { medida: medida, resto: resto, orden: orden };
   }
 
+  // "SPORTRAK SP716 HP 79 H" -> SP716. No siempre va primero: "SPORTRAK UHP SP726 93 W".
+  function codigoDiseno(diseno) {
+    var ts = txt(diseno).split(' ');
+    for (var i = 0; i < ts.length; i++) if (/^SP\d+$/.test(ts[i])) return ts[i];
+    return '';
+  }
+
   // La lista de precios escribe 245/70R16 donde el stock dice LT245/70R16: es la misma medida.
   function sinPrefijo(medida) {
     return txt(medida).replace(/^(LT|ST|P)(?=\d)/, '');
@@ -262,6 +278,8 @@
     };
     it.ordenMedida = an.orden;
     it.medidaBase = sinPrefijo(an.medida);
+    it.codigoSP = codigoDiseno(diseno);
+    it.desc = '';
     it.txt = key(it.marca + it.diseno + it.medida + it.obs);
     it.dig = digitos(it.medida);
     return it;
@@ -377,6 +395,20 @@
     return n ? mapa : null;
   }
 
+  // MEDIDA,DISENO,RUTA,MDP,VIGENCIA
+  function leerPreciosSportrak(texto) {
+    var filas = parsearCSV(texto), mapa = {}, n = 0, vigencia = '';
+    for (var i = 0; i < filas.length; i++) {
+      var med = norm(filas[i][0]), cod = norm(filas[i][1]);
+      var r = aNumero(filas[i][2]), m = aNumero(filas[i][3]);
+      if (!med || !cod || (r === null && m === null)) continue;   // saltea el encabezado
+      mapa[med + '|' + cod] = { ruta: r, mdp: m };
+      if (!vigencia && txt(filas[i][4])) vigencia = txt(filas[i][4]);
+      n++;
+    }
+    return n ? { mapa: mapa, vigencia: vigencia, cantidad: n } : null;
+  }
+
   // A que renglon de la lista de precios corresponde una ficha.
   // Prueba el codigo del stock, su equivalente de proveedor y las equivalencias
   // cargadas a mano, y solo acepta uno si la medida es la misma.
@@ -420,7 +452,37 @@
         if (it.mdp === null && listas.mdp && listas.mdp[c]) it.mdp = listas.mdp[c].valor;
       }
     }
+    // Sportrak: por medida + diseño, que es lo unico que trae su lista
+    if (listas.sportrak) {
+      for (i = 0; i < items.length; i++) {
+        var sp = items[i];
+        if (!sp.codigoSP) continue;
+        var pr2 = listas.sportrak[sp.medidaBase + '|' + sp.codigoSP];
+        if (!pr2) continue;
+        if (sp.ruta === null && pr2.ruta !== null) { sp.ruta = pr2.ruta; puestos++; }
+        if (sp.mdp === null && pr2.mdp !== null) sp.mdp = pr2.mdp;
+      }
+    }
     return { puestos: puestos, chocados: chocados };
+  }
+
+  // Los descuentos van uno atras del otro, no sumados:
+  // 6% y despues 5% sobre lo que quedo, no 11%.
+  function descuentoPorId(id) {
+    for (var i = 0; i < CONFIG.descuentos.length; i++)
+      if (CONFIG.descuentos[i].id === (id || '')) return CONFIG.descuentos[i];
+    return CONFIG.descuentos[0];
+  }
+
+  function conDescuento(valor, id) {
+    if (valor === null) return null;
+    var d = descuentoPorId(id);
+    for (var i = 0; i < d.pasos.length; i++) valor = valor * (1 - d.pasos[i] / 100);
+    return valor;
+  }
+
+  function llevaDescuento(it) {
+    return CONFIG.marcasConDescuento.indexOf(it.marca) >= 0 && (it.ruta !== null || it.mdp !== null);
   }
 
   /* ---------- estado y nodos ---------- */
@@ -519,6 +581,12 @@
 
   // Cada precio es un boton: al tocarlo copia "MARCA DISEÑO MEDIDA $ PRECIO",
   // solo con ese precio, para mandarlo al cliente sin que vea el otro.
+  function etiquetaPrecio(tipo, it) {
+    var etiqueta = tipo === 'ruta' ? 'RUTA' : 'MDP';
+    var d = descuentoPorId(it.desc);
+    return etiqueta + (d.pasos.length ? ' <span class="precio__desc">-' + d.etiqueta + '</span>' : '');
+  }
+
   function bloquePrecio(tipo, valor, it, i) {
     var etiqueta = tipo === 'ruta' ? 'RUTA' : 'MDP';
     if (valor === null) {
@@ -529,13 +597,13 @@
     }
     return '<button type="button" class="precio precio--' + tipo + '" data-i="' + i + '" data-precio="' + tipo + '"' +
              ' aria-label="Copiar precio ' + etiqueta + ' de ' + esc(it.medida) + '">' +
-             '<span class="precio__tag">' + etiqueta + ICONO_COPIAR + '</span>' +
-             '<span class="precio__valor">' + fmtPesos(valor) + '</span>' +
+             '<span class="precio__tag">' + etiquetaPrecio(tipo, it) + ICONO_COPIAR + '</span>' +
+             '<span class="precio__valor">' + fmtPesos(conDescuento(valor, it.desc)) + '</span>' +
            '</button>';
   }
 
   function textoParaCopiar(it, tipo) {
-    var valor = tipo === 'ruta' ? it.ruta : it.mdp;
+    var valor = conDescuento(tipo === 'ruta' ? it.ruta : it.mdp, it.desc);
     return [it.marca, it.diseno, it.medida].filter(Boolean).join(' ') + ' ' + fmtPesos(valor);
   }
 
@@ -551,13 +619,25 @@
                 (it.obs ? '<div class="obs">' + esc(it.obs) + '</div>' : '') +
               '</div>';
 
+    var desc = '';
+    if (llevaDescuento(it)) {
+      desc = '<div class="descuentos" role="group" aria-label="Descuento a aplicar">' +
+             '<span class="descuentos__tit">Desc.</span>';
+      for (var d = 0; d < CONFIG.descuentos.length; d++) {
+        var op = CONFIG.descuentos[d];
+        desc += '<button type="button" class="desc" data-i="' + i + '" data-desc="' + op.id + '"' +
+                ' aria-pressed="' + (it.desc === op.id ? 'true' : 'false') + '">' + op.etiqueta + '</button>';
+      }
+      desc += '</div>';
+    }
+
     // sin ningun precio cargado se muestra una sola franja, para no repetir dos "A confirmar"
     var precios = (it.ruta === null && it.mdp === null)
       ? '<div class="precios precios--vacio">Precio a confirmar</div>'
       : '<div class="precios">' + bloquePrecio('ruta', it.ruta, it, i) + bloquePrecio('mdp', it.mdp, it, i) + '</div>';
 
     return '<article class="card' + (hayStock(it) ? '' : ' card--sin') + '">' +
-             cab + precios +
+             cab + desc + precios +
            '</article>';
   }
 
@@ -635,8 +715,11 @@
     mostrar(elDemo);
     if (demo) elDemo.hidden = false;
     elUpd.textContent = fecha ? 'Actualizado ' + fecha : 'Stock cargado';
-    var vig = listas && (listas.vigencia || '');
-    if (vig) { elVig.textContent = vig.replace(/^VIGENCIA\s*/, 'Precios ') ; elVig.hidden = false; }
+    var vig = listas ? txt(listas.vigencia).replace(/^VIGENCIA\s*/i, '') : '';
+    var vigSP = listas ? txt(listas.vigenciaSP) : '';
+    var cartel = vig ? 'Precios ' + vig : '';
+    if (vigSP && vigSP !== vig) cartel += (cartel ? ' · SP ' : 'Precios SP ') + vigSP;
+    if (cartel) { elVig.textContent = cartel; elVig.hidden = false; }
     else elVig.hidden = true;
     render();
   }
@@ -668,14 +751,21 @@
         .then(function (res) { return leerListaPrecios(filasDeHoja(res.wb, res.wb.SheetNames[0])); })
         .catch(function () { return null; });
     });
-    pedidos.push(
-      fetch(CONFIG.codigos + '?v=' + Date.now(), { cache: 'no-store' })
+    function bajarTexto(url, leer) {
+      return fetch(url + '?v=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-        .then(leerPuente)
-        .catch(function () { return null; })
-    );
+        .then(leer)
+        .catch(function () { return null; });
+    }
+    pedidos.push(bajarTexto(CONFIG.codigos, leerPuente));
+    pedidos.push(bajarTexto(CONFIG.sportrak, leerPreciosSportrak));
+
     return Promise.all(pedidos).then(function (res) {
-      var listas = { ruta: null, mdp: null, puente: res[2], vigencia: '' };
+      var listas = {
+        ruta: null, mdp: null, puente: res[2],
+        sportrak: res[3] ? res[3].mapa : null,
+        vigencia: '', vigenciaSP: res[3] ? res[3].vigencia : ''
+      };
       nombres.forEach(function (n, i) {
         if (!res[i]) return;
         listas[n] = res[i].lista;
@@ -812,6 +902,24 @@
   });
 
   elRes.addEventListener('click', function (ev) {
+    var chip = ev.target.closest('.desc[data-desc]');
+    if (chip) {
+      var elegido = ULTIMO_RENDER[parseInt(chip.getAttribute('data-i'), 10)];
+      if (!elegido) return;
+      elegido.desc = chip.getAttribute('data-desc');
+      var ficha = chip.closest('.card'), todos = ficha.querySelectorAll('.desc'), k;
+      for (k = 0; k < todos.length; k++)
+        todos[k].setAttribute('aria-pressed', todos[k].getAttribute('data-desc') === elegido.desc ? 'true' : 'false');
+      ['ruta', 'mdp'].forEach(function (tipo) {
+        var bloque = ficha.querySelector('.precio--' + tipo);
+        if (!bloque || bloque.classList.contains('precio--sin')) return;
+        bloque.querySelector('.precio__tag').innerHTML = etiquetaPrecio(tipo, elegido) + ICONO_COPIAR;
+        bloque.querySelector('.precio__valor').textContent =
+          fmtPesos(conDescuento(tipo === 'ruta' ? elegido.ruta : elegido.mdp, elegido.desc));
+      });
+      return;
+    }
+
     var b = ev.target.closest('.precio[data-precio]');
     if (!b) return;
     var it = ULTIMO_RENDER[parseInt(b.getAttribute('data-i'), 10)];

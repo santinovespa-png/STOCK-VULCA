@@ -144,6 +144,24 @@ body{
   border-radius:6px;padding:4px 8px;align-self:flex-start;
 }
 
+/* ---- descuentos (Sportrak) ---- */
+.descuentos{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:8px 13px 9px;border-top:1px solid var(--linea);background:#fafbfc;
+}
+.descuentos__tit{
+  font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--texto-2);
+}
+.desc{
+  font:inherit;font-size:12.5px;font-weight:700;line-height:1;cursor:pointer;
+  padding:6px 10px;border-radius:999px;border:1.5px solid var(--linea);
+  background:#fff;color:var(--texto-2);-webkit-tap-highlight-color:transparent;
+}
+.desc:hover{border-color:#c9ccd3}
+.desc[aria-pressed="true"]{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
+.precio__desc{font-size:11px;letter-spacing:.3px;opacity:.9}
+
 .precios{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--linea)}
 .precio{
   padding:10px 13px 12px;display:flex;flex-direction:column;gap:3px;min-width:0;

@@ -134,6 +134,32 @@ controla que la medida coincida, así que no se pueden conectar mal dos cubierta
 Ojo con esto: cuando Goodyear saca un producto de la lista, esa medida pasa a decir
 "Precio a confirmar". No es un error de la página, es que ya no tiene precio de lista.
 
+### Precios de Sportrak y descuentos
+
+Sportrak manda las listas en **PDF**, no en Excel, y sin columna de código. Por eso van en
+un archivo aparte, `data/precios_sportrak.csv`, que armo yo con los dos PDF (RUTA y MDP):
+
+```
+MEDIDA,DISENO,RUTA,MDP,VIGENCIA
+165/70 R13,SP716,73000,75400,11/11/26
+```
+
+Se cruza con el stock por **medida + código de diseño** (SP716, SP786...), que es lo único
+que traen esas listas. Cuando te llegue la lista nueva, pasame los dos PDF y lo actualizo.
+Si cambia un precio suelto, el `.csv` se puede editar directo en GitHub.
+
+**Los descuentos.** En cada ficha de Sportrak el vendedor elige con qué descuento quiere ver
+el precio: **Lista** (sin descuento, es lo que aparece al principio), **6+5+5** o **6+5**.
+
+Se aplican **uno atrás del otro, no sumados**: 6+5+5 sobre $ 73.000 da $ 61.930
+(73.000 − 6% = 68.620, − 5% = 65.189, − 5% = 61.930), y no $ 61.320 que sería restar 16%
+de una. El precio que se copia sale ya con el descuento elegido, y mientras hay un descuento
+puesto la etiqueta del bloque lo dice (`RUTA -6+5+5`), para que no haya confusión.
+
+El descuento es **por ficha**: elegirlo en una medida no cambia las demás. Goodyear no lleva
+descuentos, así que esas fichas no muestran los botones. Para cambiar los porcentajes o
+agregar otra opción, está en `assets/app.js`, en `descuentos`.
+
 **Por qué algunas medidas dicen "Precio a confirmar":**
 
 - No están en la lista Consumer: camión y ómnibus (22.5", 17.5"), agrícolas y cámaras.
@@ -203,6 +229,7 @@ data/stock.xlsx         ← se reemplaza TODOS LOS DÍAS
 data/precios_ruta.xlsx  ← lista RUTA, se reemplaza cuando cambian los precios
 data/precios_mdp.xlsx   ← lista MDP, idem
 data/codigos.csv        ← puente entre el código del stock y el de la lista de precios
+data/precios_sportrak.csv ← precios Sportrak, sacados de sus PDF
 ```
 
 - Para cambiar el título de arriba, editá `index.html` (busque `STOCK VULCA`).
