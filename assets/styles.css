@@ -168,9 +168,9 @@ body{
   font:inherit;text-align:left;border:0;margin:0;width:100%;
   -webkit-appearance:none;appearance:none;
 }
-button.precio{cursor:pointer;-webkit-tap-highlight-color:transparent}
-button.precio:active{filter:brightness(1.25)}
-button.precio:focus-visible{outline:3px solid var(--azul);outline-offset:-3px}
+.precio[data-precio]{cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration:none}
+.precio[data-precio]:active{filter:brightness(1.1)}
+.precio[data-precio]:focus-visible{outline:3px solid var(--azul);outline-offset:-3px}
 .precio--sin{cursor:default}
 .precio__tag{
   font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;
@@ -180,10 +180,10 @@ button.precio:focus-visible{outline:3px solid var(--azul);outline-offset:-3px}
 .precio--ok .precio__valor{opacity:.65}
 .precio__valor{font-size:21px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
 .precio__valor--vacio{font-size:13px;font-weight:700;opacity:.75;letter-spacing:0}
-.precio--ruta{background:var(--negro);color:#fff}
-.precio--ruta .precio__tag{color:var(--amarillo)}
-.precio--mdp{background:var(--amarillo);color:var(--negro)}
-.precio--mdp .precio__tag{color:#6b5500}
+.precio--ruta{background:var(--amarillo);color:var(--negro)}
+.precio--ruta .precio__tag{color:#6b5500}
+.precio--mdp{background:var(--negro);color:#fff}
+.precio--mdp .precio__tag{color:var(--amarillo)}
 
 .precios--vacio{
   display:block;padding:11px 13px;background:#f6f7f9;color:var(--texto-2);
@@ -212,8 +212,8 @@ button.precio:focus-visible{outline:3px solid var(--azul);outline-offset:-3px}
 .foot{padding:18px 16px 34px;color:var(--texto-2);font-size:13px}
 .foot__legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 12px}
 .legend-dot{width:13px;height:13px;border-radius:4px;display:inline-block}
-.legend-dot--ruta{background:var(--negro)}
-.legend-dot--mdp{background:var(--amarillo);border:1px solid var(--amarillo-osc)}
+.legend-dot--ruta{background:var(--amarillo);border:1px solid var(--amarillo-osc)}
+.legend-dot--mdp{background:var(--negro)}
 .foot__tip{margin:0 0 14px;font-size:12.5px}
 .loader{border-top:1px solid var(--linea);padding-top:12px}
 .loader summary{cursor:pointer;font-weight:700;color:var(--texto)}

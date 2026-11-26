@@ -188,18 +188,23 @@ Además tiene filtro por marca, botón **"Solo con stock"** y orden (medida, mar
 stock o precio).
 
 **Los dos precios se distinguen por color:**
-**RUTA = bloque negro** · **MDP = bloque amarillo**, cada uno con su etiqueta.
+**RUTA = bloque amarillo** · **MDP = bloque negro**, cada uno con su etiqueta.
 
-### Copiar un precio para mandarlo
+### Mandar un precio por WhatsApp
 
-Cada precio es un botón. Tocando el bloque se copia **solo ese precio**, listo para pegar
-en WhatsApp:
+Cada precio es un atajo a WhatsApp. Tocando el bloque se abre WhatsApp con **solo ese
+precio** ya escrito, y el vendedor elige a quién mandárselo:
 
-- Tocás el bloque negro → `GOODYEAR ASSURANCE MAXLIFE 86H XL 175/65 R14 $ 91.231`
-- Tocás el amarillo → lo mismo pero con el precio MDP
+- Tocás el bloque amarillo → `GOODYEAR ASSURANCE MAXLIFE 86H XL 175/65 R14 $ 98.193`
+- Tocás el negro → lo mismo pero con el precio MDP
 
-De esta manera el cliente nunca recibe los dos precios juntos. El bloque avisa
-**✓ COPIADO** por un segundo para confirmar.
+De esta manera el cliente nunca recibe los dos precios juntos. El precio además queda
+**copiado**, por si lo quieren pegar en otro lado, y el bloque avisa **✓ COPIADO** por un
+segundo.
+
+En la computadora abre WhatsApp Web en otra pestaña; si no están con la sesión iniciada,
+el precio igual quedó copiado. Para volver a que solo copie, sin abrir WhatsApp, está en
+`assets/app.js`, en `whatsapp: true`.
 
 ---
 
