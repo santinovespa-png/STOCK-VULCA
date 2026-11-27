@@ -14,6 +14,15 @@
     codigos: 'data/codigos.csv',
     // Sportrak manda la lista en PDF y sin codigo, asi que se cruza por medida + diseño
     sportrak: 'data/precios_sportrak.csv',
+    // Roadking manda un solo precio por medida pero tres segun la condicion de pago
+    roadking: 'data/precios_roadking.csv',
+    // Que precios tiene cada marca. '' es lo que vale para todas las demas.
+    tiposDePrecio: {
+      '': [{ id: 'ruta', etiqueta: 'RUTA' }, { id: 'mdp', etiqueta: 'MDP' }],
+      'ROADKING': [{ id: 'contado', etiqueta: 'CONTADO' },
+                   { id: 'd60', etiqueta: '0/60' },
+                   { id: 'd90', etiqueta: '0/90' }]
+    },
     // Descuentos encadenados: cada uno se aplica sobre lo que quedo del anterior
     descuentos: [
       { id: '',    etiqueta: 'Lista', pasos: [] },
@@ -227,6 +236,20 @@
     return { medida: medida, resto: resto, orden: orden };
   }
 
+  // "ARGOS AX5 88H" -> ARGOSAX5, para cruzar con la lista de Roadking
+  var RUIDO_MODELO = { 'XL':1, 'SL':1, 'TL':1, 'FP':1, 'BSL':1, 'BLT':1, 'OW':1, 'HP':1, 'UHP':1,
+                       'C':1, 'D':1, 'E':1, 'LT':1, 'MT':1, 'AT':1 };
+  function nombreModelo(diseno) {
+    var ts = norm(diseno).split(/[^A-Z0-9/]+/), out = [];
+    for (var i = 0; i < ts.length; i++) {
+      var t = ts[i];
+      if (!t || RUIDO_MODELO[t]) continue;
+      if (/^\d{2,3}[A-Z]{0,2}$/.test(t) || /^\d{2,3}\/\d{2,3}/.test(t)) continue;
+      out.push(t);
+    }
+    return out.join('');
+  }
+
   // "SPORTRAK SP716 HP 79 H" -> SP716. No siempre va primero: "SPORTRAK UHP SP726 93 W".
   function codigoDiseno(diseno) {
     var ts = txt(diseno).split(' ');
@@ -281,12 +304,16 @@
       medida: an.medida,
       stockNum: stockNum,
       stockTexto: stockNum === null ? norm(stockRaw) : '',
-      ruta: aNumero(val('ruta')),
-      mdp: aNumero(val('mdp')),
+      precio: {},
       obs: norm(val('obs'))
     };
+    var pRuta = aNumero(val('ruta')), pMdp = aNumero(val('mdp'));
+    if (pRuta !== null) it.precio.ruta = pRuta;
+    if (pMdp !== null) it.precio.mdp = pMdp;
+
     it.ordenMedida = an.orden;
     it.medidaBase = sinPrefijo(an.medida);
+    it.modelo = nombreModelo(diseno);
     it.codigoSP = codigoDiseno(diseno);
     it.desc = '';
     it.txt = key(it.marca + it.diseno + it.medida + it.obs);
@@ -418,6 +445,20 @@
     return n ? { mapa: mapa, vigencia: vigencia, cantidad: n } : null;
   }
 
+  // MEDIDA,DISENO,CONTADO,D60,D90,VIGENCIA
+  function leerPreciosRoadking(texto) {
+    var filas = parsearCSV(texto), mapa = {}, n = 0, vigencia = '';
+    for (var i = 0; i < filas.length; i++) {
+      var med = norm(filas[i][0]), mod = nombreModelo(filas[i][1]);
+      var c = aNumero(filas[i][2]), d60 = aNumero(filas[i][3]), d90 = aNumero(filas[i][4]);
+      if (!med || !mod || c === null) continue;              // saltea el encabezado
+      mapa[med + '|' + mod] = { contado: c, d60: d60, d90: d90 };
+      if (!vigencia && txt(filas[i][5])) vigencia = txt(filas[i][5]);
+      n++;
+    }
+    return n ? { mapa: mapa, vigencia: vigencia, cantidad: n } : null;
+  }
+
   // A que renglon de la lista de precios corresponde una ficha.
   // Prueba el codigo del stock, su equivalente de proveedor y las equivalencias
   // cargadas a mano, y solo acepta uno si la medida es la misma.
@@ -457,8 +498,8 @@
       if (distintos > 1) { chocados += grupo.length; continue; }
       for (g = 0; g < grupo.length; g++) {
         var it = grupo[g];
-        if (it.ruta === null && listas.ruta && listas.ruta[c]) { it.ruta = listas.ruta[c].valor; puestos++; }
-        if (it.mdp === null && listas.mdp && listas.mdp[c]) it.mdp = listas.mdp[c].valor;
+        if (it.precio.ruta == null && listas.ruta && listas.ruta[c]) { it.precio.ruta = listas.ruta[c].valor; puestos++; }
+        if (it.precio.mdp == null && listas.mdp && listas.mdp[c]) it.precio.mdp = listas.mdp[c].valor;
       }
     }
     // Sportrak: por medida + diseño, que es lo unico que trae su lista
@@ -468,8 +509,21 @@
         if (!sp.codigoSP) continue;
         var pr2 = listas.sportrak[sp.medidaBase + '|' + sp.codigoSP];
         if (!pr2) continue;
-        if (sp.ruta === null && pr2.ruta !== null) { sp.ruta = pr2.ruta; puestos++; }
-        if (sp.mdp === null && pr2.mdp !== null) sp.mdp = pr2.mdp;
+        if (sp.precio.ruta == null && pr2.ruta !== null) { sp.precio.ruta = pr2.ruta; puestos++; }
+        if (sp.precio.mdp == null && pr2.mdp !== null) sp.precio.mdp = pr2.mdp;
+      }
+    }
+
+    // Roadking: por medida + modelo, con sus tres condiciones de pago
+    if (listas.roadking) {
+      for (i = 0; i < items.length; i++) {
+        var rk = items[i];
+        if (!rk.modelo) continue;
+        var pr3 = listas.roadking[rk.medidaBase + '|' + rk.modelo];
+        if (!pr3) continue;
+        if (rk.precio.contado == null) { rk.precio.contado = pr3.contado; puestos++; }
+        if (rk.precio.d60 == null) rk.precio.d60 = pr3.d60;
+        if (rk.precio.d90 == null) rk.precio.d90 = pr3.d90;
       }
     }
     return { puestos: puestos, chocados: chocados };
@@ -490,8 +544,18 @@
     return valor;
   }
 
+  function tiposDe(marca) {
+    return CONFIG.tiposDePrecio[marca] || CONFIG.tiposDePrecio[''];
+  }
+
+  function tienePrecio(it) {
+    var t = tiposDe(it.marca);
+    for (var i = 0; i < t.length; i++) if (it.precio[t[i].id] != null) return true;
+    return false;
+  }
+
   function llevaDescuento(it) {
-    return CONFIG.marcasConDescuento.indexOf(it.marca) >= 0 && (it.ruta !== null || it.mdp !== null);
+    return CONFIG.marcasConDescuento.indexOf(it.marca) >= 0 && tienePrecio(it);
   }
 
   /* ---------- estado y nodos ---------- */
@@ -605,21 +669,28 @@
 
   // Cada precio es un boton: al tocarlo copia "MARCA DISEÑO MEDIDA $ PRECIO",
   // solo con ese precio, para mandarlo al cliente sin que vea el otro.
-  function etiquetaPrecio(tipo, it) {
-    var etiqueta = tipo === 'ruta' ? 'RUTA' : 'MDP';
-    var d = descuentoPorId(it.desc);
-    return etiqueta + (d.pasos.length ? ' <span class="precio__desc">-' + d.etiqueta + '</span>' : '');
+  function etiquetaDe(it, tipo) {
+    var ts = tiposDe(it.marca);
+    for (var i = 0; i < ts.length; i++) if (ts[i].id === tipo) return ts[i].etiqueta;
+    return tipo.toUpperCase();
   }
 
-  function bloquePrecio(tipo, valor, it, i) {
-    var etiqueta = tipo === 'ruta' ? 'RUTA' : 'MDP';
-    if (valor === null) {
+  function etiquetaPrecio(it, tipo) {
+    var d = descuentoPorId(it.desc);
+    return etiquetaDe(it, tipo) +
+           (d.pasos.length ? ' <span class="precio__desc">-' + d.etiqueta + '</span>' : '');
+  }
+
+  function bloquePrecio(it, tipo, i) {
+    var etiqueta = etiquetaDe(it, tipo);
+    var valor = it.precio[tipo];
+    if (valor == null) {
       return '<div class="precio precio--' + tipo + ' precio--sin">' +
                '<span class="precio__tag">' + etiqueta + '</span>' +
                '<span class="precio__valor precio__valor--vacio">A confirmar</span>' +
              '</div>';
     }
-    var cuerpo = '<span class="precio__tag">' + etiquetaPrecio(tipo, it) +
+    var cuerpo = '<span class="precio__tag">' + etiquetaPrecio(it, tipo) +
                    (CONFIG.whatsapp ? ICONO_WA : ICONO_COPIAR) + '</span>' +
                  '<span class="precio__valor">' + fmtPesos(conDescuento(valor, it.desc)) + '</span>';
     var comun = ' class="precio precio--' + tipo + '" data-i="' + i + '" data-precio="' + tipo + '"';
@@ -635,7 +706,7 @@
   }
 
   function textoParaCopiar(it, tipo) {
-    var valor = conDescuento(tipo === 'ruta' ? it.ruta : it.mdp, it.desc);
+    var valor = conDescuento(it.precio[tipo], it.desc);
     return [it.marca, it.medida, it.diseno].filter(Boolean).join(' ') + ' ' + fmtPesos(valor);
   }
 
@@ -663,10 +734,15 @@
       desc += '</div>';
     }
 
-    // sin ningun precio cargado se muestra una sola franja, para no repetir dos "A confirmar"
-    var precios = (it.ruta === null && it.mdp === null)
-      ? '<div class="precios precios--vacio">Precio a confirmar</div>'
-      : '<div class="precios">' + bloquePrecio('ruta', it.ruta, it, i) + bloquePrecio('mdp', it.mdp, it, i) + '</div>';
+    // sin ningun precio cargado se muestra una sola franja, para no repetir "A confirmar"
+    var tipos = tiposDe(it.marca), precios;
+    if (!tienePrecio(it)) {
+      precios = '<div class="precios precios--vacio">Precio a confirmar</div>';
+    } else {
+      precios = '<div class="precios precios--' + tipos.length + '">';
+      for (var t = 0; t < tipos.length; t++) precios += bloquePrecio(it, tipos[t].id, i);
+      precios += '</div>';
+    }
 
     return '<article class="card' + (hayStock(it) ? '' : ' card--sin') + '">' +
              cab + desc + precios +
@@ -747,10 +823,27 @@
     mostrar(elDemo);
     if (demo) elDemo.hidden = false;
     elUpd.textContent = fecha ? 'Actualizado ' + fecha : 'Stock cargado';
-    var vig = listas ? txt(listas.vigencia).replace(/^VIGENCIA\s*/i, '') : '';
-    var vigSP = listas ? txt(listas.vigenciaSP) : '';
-    var cartel = vig ? 'Precios ' + vig : '';
-    if (vigSP && vigSP !== vig) cartel += (cartel ? ' · SP ' : 'Precios SP ') + vigSP;
+    // Cartel de vigencias: si las listas coinciden va una sola fecha, si no se agrupan
+    var fechas = [];
+    function sumarFecha(etq, f) {
+      f = txt(f).replace(/^VIGENCIA\s*/i, '').replace(/\/(\d{2})(\d{2})$/, '/$2');
+      if (!f) return;
+      for (var k = 0; k < fechas.length; k++)
+        if (fechas[k].f === f) { fechas[k].e.push(etq); return; }
+      fechas.push({ f: f, e: [etq] });
+    }
+    if (listas) {
+      sumarFecha('GY', listas.vigencia);
+      sumarFecha('SP', listas.vigenciaSP);
+      sumarFecha('RK', listas.vigenciaRK);
+    }
+    var cartel = '';
+    if (fechas.length === 1) cartel = 'Precios ' + fechas[0].f;
+    else if (fechas.length > 1) {
+      var partes = [];
+      for (var k2 = 0; k2 < fechas.length; k2++) partes.push(fechas[k2].e.join('/') + ' ' + fechas[k2].f);
+      cartel = 'Precios ' + partes.join(' · ');
+    }
     if (cartel) { elVig.textContent = cartel; elVig.hidden = false; }
     else elVig.hidden = true;
     render();
@@ -791,12 +884,15 @@
     }
     pedidos.push(bajarTexto(CONFIG.codigos, leerPuente));
     pedidos.push(bajarTexto(CONFIG.sportrak, leerPreciosSportrak));
+    pedidos.push(bajarTexto(CONFIG.roadking, leerPreciosRoadking));
 
     return Promise.all(pedidos).then(function (res) {
       var listas = {
         ruta: null, mdp: null, puente: res[2],
         sportrak: res[3] ? res[3].mapa : null,
-        vigencia: '', vigenciaSP: res[3] ? res[3].vigencia : ''
+        roadking: res[4] ? res[4].mapa : null,
+        vigencia: '', vigenciaSP: res[3] ? res[3].vigencia : '',
+        vigenciaRK: res[4] ? res[4].vigencia : ''
       };
       nombres.forEach(function (n, i) {
         if (!res[i]) return;
@@ -1034,15 +1130,15 @@
       var ficha = chip.closest('.card'), todos = ficha.querySelectorAll('.desc'), k;
       for (k = 0; k < todos.length; k++)
         todos[k].setAttribute('aria-pressed', todos[k].getAttribute('data-desc') === elegido.desc ? 'true' : 'false');
-      ['ruta', 'mdp'].forEach(function (tipo) {
-        var bloque = ficha.querySelector('.precio--' + tipo);
+      tiposDe(elegido.marca).forEach(function (tp) {
+        var bloque = ficha.querySelector('.precio--' + tp.id);
         if (!bloque || bloque.classList.contains('precio--sin')) return;
         bloque.querySelector('.precio__tag').innerHTML =
-          etiquetaPrecio(tipo, elegido) + (CONFIG.whatsapp ? ICONO_WA : ICONO_COPIAR);
+          etiquetaPrecio(elegido, tp.id) + (CONFIG.whatsapp ? ICONO_WA : ICONO_COPIAR);
         bloque.querySelector('.precio__valor').textContent =
-          fmtPesos(conDescuento(tipo === 'ruta' ? elegido.ruta : elegido.mdp, elegido.desc));
+          fmtPesos(conDescuento(elegido.precio[tp.id], elegido.desc));
         if (CONFIG.whatsapp && bloque.tagName === 'A')
-          bloque.href = linkWhatsapp(textoParaCopiar(elegido, tipo));
+          bloque.href = linkWhatsapp(textoParaCopiar(elegido, tp.id));
       });
       return;
     }
@@ -1052,7 +1148,7 @@
     var it = ULTIMO_RENDER[parseInt(b.getAttribute('data-i'), 10)];
     if (!it) return;
     var tipo = b.getAttribute('data-precio');
-    if ((tipo === 'ruta' ? it.ruta : it.mdp) === null) return;
+    if (it.precio[tipo] == null) return;
     var texto = textoParaCopiar(it, tipo);
 
     if (CONFIG.whatsapp && fotoDe(it)) {       // hay foto: primero preguntamos

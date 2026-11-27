@@ -136,6 +136,9 @@ Ojo con esto: cuando Goodyear saca un producto de la lista, esa medida pasa a de
 
 ### Precios de Sportrak y descuentos
 
+Sportrak y Roadking mandan las listas en **PDF**, no en Excel, y sin columna de código.
+Esas dos las cargo yo: me pasás los PDF y las actualizo.
+
 Sportrak manda las listas en **PDF**, no en Excel, y sin columna de código. Por eso van en
 un archivo aparte, `data/precios_sportrak.csv`, que armo yo con los dos PDF (RUTA y MDP):
 
@@ -159,6 +162,30 @@ puesto la etiqueta del bloque lo dice (`RUTA -6+5+5`), para que no haya confusi�
 El descuento es **por ficha**: elegirlo en una medida no cambia las demás. Goodyear no lleva
 descuentos, así que esas fichas no muestran los botones. Para cambiar los porcentajes o
 agregar otra opción, está en `assets/app.js`, en `descuentos`.
+
+### Precios de Roadking y condiciones de pago
+
+Roadking también manda la lista en **PDF**, y no tiene RUTA y MDP: tiene **tres precios
+según la condición de pago**. Van en `data/precios_roadking.csv`:
+
+```
+MEDIDA,DISENO,CONTADO,D60,D90,VIGENCIA
+165/70 R13,ARGOS AX5,61800,64600,67000,27/11/2026
+```
+
+En la ficha aparecen los tres bloques, cada uno con su color y su botón de WhatsApp:
+**CONTADO** (amarillo), **0/60** (negro) y **0/90** (gris). El vendedor toca el que
+corresponde y manda solo ese precio.
+
+Se cruza con el stock por **medida + modelo** (ARGOS AX5 / ARGOS AT08), porque esa lista
+tampoco trae código. Hoy cruzan las 9 medidas que hay en stock.
+
+Qué precios tiene cada marca está en `assets/app.js`, en `tiposDePrecio`: ahí se cambian
+las etiquetas o se agrega una condición nueva, y la ficha se arma sola con la cantidad de
+bloques que haga falta.
+
+**Las vigencias.** Arriba, al lado de la fecha del stock, se muestran las de las listas.
+Si coinciden va una sola fecha; si no, agrupadas: `Precios GY 12/11/26 · SP/RK 27/11/26`.
 
 **Por qué algunas medidas dicen "Precio a confirmar":**
 
@@ -248,6 +275,7 @@ data/precios_ruta.xlsx  ← lista RUTA, se reemplaza cuando cambian los precios
 data/precios_mdp.xlsx   ← lista MDP, idem
 data/codigos.csv        ← puente entre el código del stock y el de la lista de precios
 data/precios_sportrak.csv ← precios Sportrak, sacados de sus PDF
+data/precios_roadking.csv ← precios Roadking por condición de pago, de su PDF
 ```
 
 - Para cambiar el título de arriba, editá `index.html` (busque `STOCK VULCA`).
